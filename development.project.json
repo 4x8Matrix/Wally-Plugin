@@ -1,0 +1,19 @@
+{
+	"name": "wally-plugin",
+	"tree": {
+		"$className": "DataModel",
+
+		"ServerScriptService": {
+			"$className": "ServerScriptService",
+			"$ignoreUnknownInstances": true,
+
+			"WallyPlugin": {
+				"$path": "Source",
+
+				"Packages": {
+					"$path": "Packages"
+				}
+			}
+		}
+	}
+}

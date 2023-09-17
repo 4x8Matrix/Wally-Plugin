@@ -1,0 +1,23 @@
+[package]
+name = "4x8matrix/studio-wally"
+version = "1.0.0"
+private = true
+realm = "shared"
+registry = "https://github.com/UpliftGames/wally-index"
+licence = "Unlicence"
+authors = ["AsynchronousMatrix"]
+
+[dependencies]
+# Plugin Interface
+Roact = "roblox/roact@1.4.2"
+Rodux = "roblox/rodux@3.0.0"
+RoactRodux = "roblox/roact-rodux@0.5.1"
+StudioComponents = "u-train/studiocomponents@0.1.1"
+
+# Miscellaneous
+Sift = "csqrl/Sift@0.0.8"
+Promise = "evaera/promise@4.0.0"
+ZZLib = "neura-studios/zzlib@0.1.1"
+Trove = "sleitnick/trove@1.0.1"
+
+StudioDialogues = "4x8matrix/studio-dialogues@1.0.0"

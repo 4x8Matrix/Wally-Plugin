@@ -1,0 +1,10 @@
+{
+	"name": "studio-wally",
+	"tree": {
+		"$path": "Source",
+
+		"Packages": {
+			"$path": "Packages"
+		}
+	}
+}
