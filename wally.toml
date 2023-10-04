@@ -15,9 +15,11 @@ RoactRodux = "roblox/roact-rodux@0.5.1"
 StudioComponents = "u-train/studiocomponents@0.1.1"
 
 # Miscellaneous
-Sift = "csqrl/Sift@0.0.8"
+Sift = "csqrl/sift@0.0.8"
 Promise = "evaera/promise@4.0.0"
 ZZLib = "neura-studios/zzlib@0.1.1"
 Trove = "sleitnick/trove@1.0.1"
-
-StudioDialogues = "4x8matrix/studio-dialogues@1.0.0"
+Loader = "sleitnick/loader@2.0.0"
+Console = "4x8matrix/console@2.0.2"
+Signal = "sleitnick/signal@1.5.0"
+RateLimit = "red-blox/ratelimit@1.0.1"

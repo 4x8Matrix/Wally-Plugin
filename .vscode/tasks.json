@@ -4,7 +4,7 @@
 		{
 			"label": "[⚒️ - Rojo]: Build Development Binary",
 			"type": "shell",
-			"command": "rojo build default.project.json -o build-output.rbxl",
+			"command": "rojo build development.project.json -o build-output.rbxl",
 			"group": {
 				"kind": "build"
 			}
@@ -12,7 +12,7 @@
 		{
 			"label": "[🕹️ - Rojo]: Host Development Server",
 			"type": "shell",
-			"command": "rojo serve default.project.json",
+			"command": "rojo serve development.project.json",
 			"group": {
 				"kind": "build"
 			}
@@ -22,15 +22,6 @@
 			"label": "[📪 - Rojo]: Generate LSP Sourcemap",
 			"type": "shell",
 			"command": "rojo sourcemap --output sourcemap.json",
-			"group": {
-				"kind": "build"
-			}
-		},
-
-		{
-			"label": "[🧰 - WPT]: Update Sourcemap Package Types",
-			"type": "shell",
-			"command": "wally-package-types --sourcemap sourcemap.json Packages/",
 			"group": {
 				"kind": "build"
 			}

@@ -9,6 +9,12 @@
 
 			"WallyPlugin": {
 				"$path": "Source",
+				"$properties": {
+					"Attributes": {
+						"Branch": { "String": "Unknown" },
+						"Commit": { "String": "Unknown" }
+					}
+				},
 
 				"Packages": {
 					"$path": "Packages"
