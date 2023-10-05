@@ -55,12 +55,6 @@ PluginContext.PluginSettings.DownloadAsServerDependency.Id = HttpService:Generat
 PluginContext.PluginSettings.DownloadAsServerDependency.Text = "Download Package as Server Dependency"
 PluginContext.PluginSettings.DownloadAsServerDependency.Icon = "http://www.roblox.com/asset/?id=14824729032"
 
-PluginContext.PluginSettings.DownloadAsDeveloperDependency = { }
-
-PluginContext.PluginSettings.DownloadAsDeveloperDependency.Id = HttpService:GenerateGUID(false)
-PluginContext.PluginSettings.DownloadAsDeveloperDependency.Text = "Download Package as Dev Dependency"
-PluginContext.PluginSettings.DownloadAsDeveloperDependency.Icon = "http://www.roblox.com/asset/?id=14824730720"
-
 PluginContext.PluginSettings.DownloadAsSharedDependency = { }
 
 PluginContext.PluginSettings.DownloadAsSharedDependency.Id = HttpService:GenerateGUID(false)

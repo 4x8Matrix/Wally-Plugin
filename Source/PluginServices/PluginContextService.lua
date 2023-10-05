@@ -20,12 +20,6 @@ PluginContextService.DownloadContextMenu = PluginContext.Plugin:CreatePluginMenu
 	PluginContext.PluginSettings.DownloadContextMenu.Icon
 )
 
-PluginContextService.DownloadAsDeveloperDependency = PluginContextService.DownloadContextMenu:AddNewAction(
-	PluginContext.PluginSettings.DownloadAsDeveloperDependency.Id,
-	PluginContext.PluginSettings.DownloadAsDeveloperDependency.Text,
-	PluginContext.PluginSettings.DownloadAsDeveloperDependency.Icon
-)
-
 PluginContextService.DownloadAsServerDependency = PluginContextService.DownloadContextMenu:AddNewAction(
 	PluginContext.PluginSettings.DownloadAsServerDependency.Id,
 	PluginContext.PluginSettings.DownloadAsServerDependency.Text,
@@ -56,29 +50,24 @@ function PluginContextService.OnStart(self: PluginContextService)
 	self.DownloadContextMenu.Name = `PluginContext<"{PluginContext.PluginSettings.DownloadContextMenu.Title}">`
 	self.DownloadContextMenu.Parent = PluginContext.Plugin
 
-	self.Trove:Add(self.DownloadAsDeveloperDependency.Triggered:Connect(function()
-		-- to-do!
-		
-		self.Reporter:Warn(`Unable to download as developer dependency: feature not implemented yet!`)
-	end))
-
 	self.Trove:Add(self.DownloadAsServerDependency.Triggered:Connect(function()
-		-- to-do!
-		
-		self.Reporter:Warn(`Unable to download as server dependency: feature not implemented yet!`)
+		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
+
+		PluginPackageService:AddPackageToIndex(selectedPackageObject)
+		PluginPackageService:AddPackageToServerPackages(selectedPackageObject)
 	end))
 
 	self.Trove:Add(self.DownloadAsSharedDependency.Triggered:Connect(function()
-		-- to-do!
+		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
 
-		self.Reporter:Warn(`Unable to download as shared dependency: feature not implemented yet!`)
+		PluginPackageService:AddPackageToIndex(selectedPackageObject)
+		PluginPackageService:AddPackageToSharedPackages(selectedPackageObject)
 	end))
 
 	self.Trove:Add(self.DownloadAsModule.Triggered:Connect(function()
 		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
 
 		PluginPackageService:AddPackageToIndex(selectedPackageObject)
-		-- PluginPackageService:AddPackageToShared(selectedPackageObject)
 
 		local packageStub = selectedPackageObject:CreateStubModule()
 
@@ -92,7 +81,6 @@ end
 function PluginContextService.OnStop(self: PluginContextService)
 	self.DownloadContextMenu:Destroy()
 
-	self.DownloadAsDeveloperDependency:Destroy()
 	self.DownloadAsServerDependency:Destroy()
 	self.DownloadAsSharedDependency:Destroy()
 

@@ -23,8 +23,15 @@ local PluginContext = require(script.Parent.PluginContext)
 local runtimeClockSnapshot = os.clock()
 local runtimeReporter = Console.new(`🚀 {script.Name}`)
 
-Console.setGlobalLogLevel(Console.LogLevel.Debug)
-Console.setGlobalSchema(PLUGIN_LOG_SCHEMA)
+local branch = script.Parent:GetAttribute("Branch")
+local commit = script.Parent:GetAttribute("Commit")
+
+if branch == "master" then
+	Console.setGlobalLogLevel(Console.LogLevel.Warn)
+else
+	Console.setGlobalLogLevel(Console.LogLevel.Debug)
+	Console.setGlobalSchema(PLUGIN_LOG_SCHEMA)
+end
 
 xpcall(function()
 	PluginContext.Plugin = plugin
@@ -39,8 +46,8 @@ xpcall(function()
 
 	runtimeReporter:Log(`Loaded all Plugin Services! ({os.clock() - runtimeClockSnapshot}ms)`)
 
-	runtimeReporter:Log(`Plugin Commit SHA: {script.Parent:GetAttribute("Commit")}`)
-	runtimeReporter:Log(`Plugin Branch: {script.Parent:GetAttribute("Branch")}`)
+	runtimeReporter:Log(`Plugin Commit SHA: {commit}`)
+	runtimeReporter:Log(`Plugin Branch: {branch}`)
 
 	PluginContext.Plugin.Unloading:Once(function()
 		task.defer(function()
