@@ -24,6 +24,11 @@ function PluginInterfaceService.CreateRoduxEvent(_: PluginInterfaceService, even
 	return eventData
 end
 
+--[[
+	Dynamic function to query the wally api in <seconds>, however if this function is several times, it will
+		cancel the last query request. Therefore allowing us to make 1 request every time the user
+		stops typing.
+]]
 function PluginInterfaceService.QueryIn(self: PluginInterfaceService, seconds: number, textInput: string)
 	if self.QueryThread then
 		task.cancel(self.QueryThread)
@@ -55,6 +60,7 @@ end
 function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceService)
 	RoduxStore:dispatch(self:CreateRoduxEvent("setCallbacks", {
 		callbacks = {
+			-- When the search bar text has been updated
 			onSearchTextUpdated = function(textInput: string)
 				if textInput == "" then
 					RoduxStore:dispatch(self:CreateRoduxEvent("setSearchedPackages", {
@@ -67,6 +73,7 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 				self:QueryIn(0.25, textInput)
 			end,
 	
+			-- When the download button has been clicked
 			onDownloadButtonClicked = function(selectedPackageName)
 				local packageInformation = VirtualPackage.parse(selectedPackageName)
 				local selectedPackage = VirtualPackage.from(
@@ -79,10 +86,12 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 				PluginContextService:ShowDownloadContextMenuAsync()
 			end,
 	
+			-- Not yet implemented!
 			onDeleteButtonClicked = function()
 	
 			end,
 	
+			-- When the developer right-clicks on the package instead of pressing the download button
 			onSuggestedLabelRightClicked = function(selectedPackageName)
 				local packageInformation = VirtualPackage.parse(selectedPackageName)
 				local selectedPackage = VirtualPackage.from(
@@ -95,6 +104,7 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 				PluginContextService:ShowDownloadContextMenuAsync()
 			end,
 	
+			-- I don't know what this is, but i'm sure there's a good reason for it to exist.
 			onInstallLabelRightClicked = function()
 	
 			end

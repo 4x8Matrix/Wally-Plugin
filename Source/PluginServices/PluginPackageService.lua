@@ -20,6 +20,12 @@ PluginPackageService.SharedPackageIndex = (newproxy()) :: Folder
 PluginPackageService.ServerPackages = (newproxy()) :: Folder
 PluginPackageService.ServerPackageIndex = (newproxy()) :: Folder
 
+--[[
+	Main function for adding a package to either ServerPackageIndex or SharedPackageIndex, this function reads the "realm"
+		metadata to know where to place the package.
+
+	This function also downloads the relevant dependencies, and creates the stub modules required for the package to function.
+]]
 function PluginPackageService.AddPackageToIndex(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
 	local packageRealm = package:FetchRealmAsync():expect()
 	local contextPackageIndex = packageRealm == "server" and self.ServerPackageIndex
@@ -60,6 +66,15 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 	end):catch(warn):await()
 end
 
+--[[
+	Adds a package stub module to the ServerPackages folder.
+	
+	If the package's realm is set to "server", the package will be downloaded to the server, and the stub module will be parented
+		to the SharedPackages folder.
+
+	If the package's realm is set to "shared", the package will be downloaded to the shared packages, but the stub module will
+		be parented to the SharedPackages folder.
+]]
 function PluginPackageService.AddPackageToSharedPackages(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
 	local stubModule = package:CreateStubModule()
 
@@ -67,6 +82,15 @@ function PluginPackageService.AddPackageToSharedPackages(self: PluginPackageServ
 	stubModule.Parent = self.SharedPackages
 end
 
+--[[
+	Adds a package stub module to the ServerPackages folder.
+	
+	If the package's realm is set to "server", the package will be downloaded to the server, and the stub module will be parented
+		to the ServerPackages folder.
+
+	If the package's realm is set to "shared", the package will be downloaded to the shared packages, but the stub module will
+		be parented to the SeverPackages folder.
+]]
 function PluginPackageService.AddPackageToServerPackages(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
 	local stubModule = package:CreateStubModule()
 
@@ -74,10 +98,16 @@ function PluginPackageService.AddPackageToServerPackages(self: PluginPackageServ
 	stubModule.Parent = self.ServerPackages
 end
 
+--[[
+	Set the selected package, called from the `PluginInterfaceService` module when a developer clicks on a package entry
+]]
 function PluginPackageService.SetSelectedPackage(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
 	self.SelectedPackage = package
 end
 
+--[[
+	Return the selected package, selected packages are set when the player interacts with a package on the package list.
+]]
 function PluginPackageService.GetSelectedPackage(self: PluginPackageService)
 	return self.SelectedPackage
 end

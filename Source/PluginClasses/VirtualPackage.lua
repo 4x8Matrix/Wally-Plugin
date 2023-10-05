@@ -9,6 +9,9 @@ VirtualPackage.Interface = { }
 VirtualPackage.Prototype = { }
 VirtualPackage.Packages = { }
 
+--[[
+	Fetches the metadata for our current package.
+]]
 function VirtualPackage.Prototype.FetchPackageMetadataAsync(self: VirtualPackage)
 	return Promise.new(function(resolve)
 		if self.MetadataFetched then
@@ -40,6 +43,9 @@ function VirtualPackage.Prototype.FetchPackageMetadataAsync(self: VirtualPackage
 	end)
 end
 
+--[[
+	Create a list of new packages that represent dependencies of our current package.
+]]
 function VirtualPackage.Prototype.FetchDependenciesAsync(self: VirtualPackage)
 	return Promise.new(function(resolve)
 		if self.MetadataFetched then
@@ -52,6 +58,9 @@ function VirtualPackage.Prototype.FetchDependenciesAsync(self: VirtualPackage)
 	end)
 end
 
+--[[
+	Fetch the realm of our current package, this can be either "server" or "shared"
+]]
 function VirtualPackage.Prototype.FetchRealmAsync(self: VirtualPackage)
 	return Promise.new(function(resolve)
 		if self.MetadataFetched then
@@ -64,16 +73,9 @@ function VirtualPackage.Prototype.FetchRealmAsync(self: VirtualPackage)
 	end)
 end
 
-function VirtualPackage.Prototype.DownloadDependenciesAsync(self: VirtualPackage)
-	local downloadPromise = { }
-	
-	for _, dependencyPackage in self.DependencyList do
-		table.insert(downloadPromise, dependencyPackage:DownloadAsync())
-	end
-
-	return Promise.all(downloadPromise)
-end
-
+--[[
+	Download the Zip contents of this package.
+]]
 function VirtualPackage.Prototype.DownloadAsync(self: VirtualPackage)
 	return Promise.new(function(resolve)
 		if self.ModuleScript then
@@ -92,6 +94,10 @@ function VirtualPackage.Prototype.DownloadAsync(self: VirtualPackage)
 	end)
 end
 
+--[[
+	Generates a module which just returns a require to our module script, bridging the connection between a
+		players game-code and the downloaded packages.
+]]
 function VirtualPackage.Prototype.CreateStubModule(self: VirtualPackage)
 	if not self.ModuleScript then
 		return warn(`Failed to create stub module for: '{self.Scope}/{self.Name}@{self.Version}'`)

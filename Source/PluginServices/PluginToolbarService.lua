@@ -18,6 +18,9 @@ function PluginToolbarService.SetToolbarButtonCallback(self: PluginToolbarServic
 	return self.ToolbarButtons[buttonName].Click:Connect(buttonCallback)
 end
 
+--[[
+	Update toolbar buttons icons, used when the user switches the studio theme
+]]
 function PluginToolbarService.UpdateToolbarButtonIcons(self: PluginToolbarService)
 	local themeName = tostring(PluginContext.StudioSettings.Theme)
 	
@@ -26,6 +29,10 @@ function PluginToolbarService.UpdateToolbarButtonIcons(self: PluginToolbarServic
 	end
 end
 
+--[[
+	Runs through the `PluginSettings.Toolbar.Buttons` table under `PluginContext` and generates
+		several buttons that will be displayed on the toolbar
+]]
 function PluginToolbarService.CreateToolbarButtons(self: PluginToolbarService)
 	local themeName = tostring(PluginContext.StudioSettings.Theme)
 	
@@ -49,6 +56,10 @@ function PluginToolbarService.OnStart(self: PluginToolbarService)
 
 	self:CreateToolbarButtons()
 	
+	--[[
+		Since we dynamically generate buttons based off of what we have in the `PluginContext` file,
+			this is a dynamic way for us to "bind" callbacks to these dynamic buttons.
+	]]
 	self.Trove:Add(self:SetToolbarButtonCallback("ToggleInterface", function()
 		PluginWidgetService:SetVisible(not PluginWidgetService:IsVisible())
 	end))

@@ -5,6 +5,7 @@ local Sift = require(script.Parent.Parent.Packages.Sift)
 
 local PluginContext = require(script.Parent.Parent.PluginContext)
 
+-- the ".blob" has no significance here, it just looks cool 😅
 local PLUGIN_SETTINGS_BLOB_NAME = "wally-plugin.blob"
 
 local PluginSettingsService = { }
@@ -13,6 +14,10 @@ PluginSettingsService.Reporter = Console.new(`🍃 {script.Name}`)
 PluginSettingsService.SettingsTable = { }
 PluginSettingsService.Schema = { }
 
+--[[
+	A dynamic way to get a setting on the developers device, can be set through `PluginSettingsService.Set` and is persistant through
+		studio shutdowns, restarts and so on.
+]]
 function PluginSettingsService.Get(self: PluginSettingsService, settingsPath: string)
 	local base = self.SettingsTable
 	local split = string.split(settingsPath, ".")
@@ -24,6 +29,10 @@ function PluginSettingsService.Get(self: PluginSettingsService, settingsPath: st
 	return base
 end
 
+--[[
+	A dynamic way to set a setting on the developers device, can be fetched through `PluginSettingsService.Get` and is persistant through
+		studio shutdowns, restarts and so on.
+]]
 function PluginSettingsService.Set(self: PluginSettingsService, settingsPath: string, value: any)
 	local base = self.SettingsTable
 	local split = string.split(settingsPath, ".")

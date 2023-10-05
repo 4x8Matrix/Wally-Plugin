@@ -37,6 +37,11 @@ else
 end
 
 xpcall(function()
+	--[[
+		In order for all of our Services to access the 'plugin' instance, we refer to the PluginContext file which 
+			houses the reference to our plugin instance.
+	]]
+
 	PluginContext.Plugin = plugin
 	PluginContext.Plugin.Name = `Plugin<"Wally-Plugin">`
 

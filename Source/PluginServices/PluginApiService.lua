@@ -11,6 +11,10 @@ PluginContextService.Reporter = Console.new(`🔎 {script.Name}`)
 function PluginContextService.OnStart(self: PluginContextService)
 	_G.WallyPlugin = { }
 
+	--[[
+		On production builds, having an Api like this could come in handy for debugging!
+	]]
+
 	function _G.WallyPlugin.EnableVerboseLogging()
 		Console.setGlobalLogLevel(Console.LogLevel.Debug)
 	end

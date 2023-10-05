@@ -1,3 +1,5 @@
+-- To Do: document the PluginDownloadService
+
 local HttpService = game:GetService("HttpService")
 
 local Console = require(script.Parent.Parent.Packages.Console)
@@ -145,6 +147,7 @@ end
 function PluginDownloadService.SerialiseZipIntoRobloxInstances(self: PluginDownloadService, rawZipBuffer: string)
 	local virtualFileSystem = VirtualFileSystem.fromZip(rawZipBuffer)
 
+	-- if we have a `default.project.json`, we can read that and build the project from there.
 	if virtualFileSystem:DirectoryHasFile("", "default.project.json") then
 		local projectFileContent = virtualFileSystem:ReadFileContents("default.project.json")
 		local projectFileJson = HttpService:JSONDecode(projectFileContent)
@@ -159,6 +162,8 @@ function PluginDownloadService.SerialiseZipIntoRobloxInstances(self: PluginDownl
 		return headNode
 	else
 		local headNode = self:ParseVirtualFileSystemDirectory(virtualFileSystem, "")
+		
+		-- in some cases, developers publish packages only containing `init.lua`, `init.luau`, we need to account for both.
 
 		return headNode
 	end

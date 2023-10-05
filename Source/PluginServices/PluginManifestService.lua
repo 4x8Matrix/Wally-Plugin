@@ -1,3 +1,8 @@
+--[[
+	 To Do: either implement the manifest feature, or remove Service.
+	 	This module doesn't do anything at the moment.
+]]
+
 local ServerStorage = game:GetService("ServerStorage")
 
 local Trove = require(script.Parent.Parent.Packages.Trove)

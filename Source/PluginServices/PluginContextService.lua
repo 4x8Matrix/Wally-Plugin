@@ -40,6 +40,9 @@ PluginContextService.DownloadAsModule = PluginContextService.DownloadContextMenu
 	PluginContext.PluginSettings.DownloadAsModule.Icon
 )
 
+--[[
+	Show the Roblox context menu for downloading and installing packages.
+]]
 function PluginContextService.ShowDownloadContextMenuAsync(self: PluginContextService)
 	return Promise.new(function(resolve)
 		resolve(self.DownloadContextMenu:ShowAsync())
@@ -50,6 +53,7 @@ function PluginContextService.OnStart(self: PluginContextService)
 	self.DownloadContextMenu.Name = `PluginContext<"{PluginContext.PluginSettings.DownloadContextMenu.Title}">`
 	self.DownloadContextMenu.Parent = PluginContext.Plugin
 
+	-- Download a package into the _Index folder, create a stub module in the Server Packages folder
 	self.Trove:Add(self.DownloadAsServerDependency.Triggered:Connect(function()
 		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
 
@@ -57,6 +61,7 @@ function PluginContextService.OnStart(self: PluginContextService)
 		PluginPackageService:AddPackageToServerPackages(selectedPackageObject)
 	end))
 
+	-- Download a package into the _Index folder, create a stub module in the Shared Packages folder
 	self.Trove:Add(self.DownloadAsSharedDependency.Triggered:Connect(function()
 		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
 
@@ -64,6 +69,12 @@ function PluginContextService.OnStart(self: PluginContextService)
 		PluginPackageService:AddPackageToSharedPackages(selectedPackageObject)
 	end))
 
+	--[[
+		Download a package into the _Index folder, create a stub module in the workspace and selecting it.
+		
+		The goal behind this is to allow players to parent modules to whereever they want too, then those modules will
+			refer to the module in _Index.
+	]]
 	self.Trove:Add(self.DownloadAsModule.Triggered:Connect(function()
 		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
 
