@@ -9,10 +9,10 @@ VirtualPackage.Interface = { }
 VirtualPackage.Prototype = { }
 VirtualPackage.Packages = { }
 
-function VirtualPackage.Prototype.FetchDependenciesAsync(self: VirtualPackage)
+function VirtualPackage.Prototype.FetchPackageMetadataAsync(self: VirtualPackage)
 	return Promise.new(function(resolve)
-		if self.DependenciesFetched then
-			resolve(self.DependencyList)
+		if self.MetadataFetched then
+			resolve()
 		end
 
 		local packageMetaData = PluginWallyApiService:QueryPackageVersionMetadataAsync(
@@ -32,9 +32,35 @@ function VirtualPackage.Prototype.FetchDependenciesAsync(self: VirtualPackage)
 			self.DependencyList[dependencyName] = dependency
 		end
 
-		self.DependenciesFetched = true
+		self.Realm = packageMetaData.package.realm
+
+		self.MetadataFetched = true
+
+		resolve()
+	end)
+end
+
+function VirtualPackage.Prototype.FetchDependenciesAsync(self: VirtualPackage)
+	return Promise.new(function(resolve)
+		if self.MetadataFetched then
+			resolve(self.DependencyList)
+		end
+
+		self:FetchPackageMetadataAsync():await()
 
 		resolve(self.DependencyList)
+	end)
+end
+
+function VirtualPackage.Prototype.FetchRealmAsync(self: VirtualPackage)
+	return Promise.new(function(resolve)
+		if self.MetadataFetched then
+			resolve(self.Realm)
+		end
+
+		self:FetchPackageMetadataAsync():await()
+
+		resolve(self.Realm)
 	end)
 end
 

@@ -1,5 +1,6 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Console = require(script.Parent.Parent.Packages.Console)
 
@@ -14,9 +15,16 @@ PluginPackageService.Reporter = Console.new(`🍃 {script.Name}`)
 PluginPackageService.SelectedPackage = { } :: VirtualPackage.VirtualPackage
 
 PluginPackageService.SharedPackages = (newproxy()) :: Folder
-PluginPackageService.PackageIndex = (newproxy()) :: Folder
+PluginPackageService.SharedPackageIndex = (newproxy()) :: Folder
+
+PluginPackageService.ServerPackages = (newproxy()) :: Folder
+PluginPackageService.ServerPackageIndex = (newproxy()) :: Folder
 
 function PluginPackageService.AddPackageToIndex(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
+	local packageRealm = package:FetchRealmAsync():expect()
+	local contextPackageIndex = packageRealm == "server" and self.ServerPackageIndex
+		or self.SharedPackageIndex
+
 	local fullPackageName = VirtualPackage.into({
 		Scope = package.Scope,
 		Name = package.Name,
@@ -26,7 +34,7 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 	-- VirtualPackage.CreateStubModule can create invalid paths if `.` is found within the package name.
 	fullPackageName = string.gsub(fullPackageName, "%.", "-")
 
-	if self.PackageIndex:FindFirstChild(fullPackageName) then
+	if contextPackageIndex:FindFirstChild(fullPackageName) then
 		return
 	end
 
@@ -34,7 +42,7 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 		local packageFolder = Instance.new("Folder")
 
 		packageFolder.Name = fullPackageName
-		packageFolder.Parent = self.PackageIndex
+		packageFolder.Parent = contextPackageIndex
 
 		module.Name = package.Name
 		module.Parent = packageFolder
@@ -52,11 +60,18 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 	end):catch(warn):await()
 end
 
-function PluginPackageService.AddPackageToShared(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
+function PluginPackageService.AddPackageToSharedPackages(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
 	local stubModule = package:CreateStubModule()
 
 	stubModule.Name = PluginStyleguideService:ToPascalCase(package.Name)
 	stubModule.Parent = self.SharedPackages
+end
+
+function PluginPackageService.AddPackageToServerPackages(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
+	local stubModule = package:CreateStubModule()
+
+	stubModule.Name = PluginStyleguideService:ToPascalCase(package.Name)
+	stubModule.Parent = self.ServerPackages
 end
 
 function PluginPackageService.SetSelectedPackage(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
@@ -69,7 +84,10 @@ end
 
 function PluginPackageService.OnStart(self: PluginPackageService)
 	self.SharedPackages = CollectionService:GetTagged("WallySharedPackages")[1]
-	self.PackageIndex = self.SharedPackages and self.SharedPackages:FindFirstChild("_Index")
+	self.SharedPackageIndex = self.SharedPackages and self.SharedPackages:FindFirstChild("_Index")
+
+	self.ServerPackages = CollectionService:GetTagged("WallyServerPackages")[1]
+	self.ServerPackageIndex = self.ServerPackages and self.ServerPackages:FindFirstChild("_Index")
 
 	if not self.SharedPackages then
 		self.SharedPackages = Instance.new("Folder")
@@ -77,14 +95,30 @@ function PluginPackageService.OnStart(self: PluginPackageService)
 		self.SharedPackages.Name = "Packages"
 		self.SharedPackages.Parent = ReplicatedStorage
 
-		CollectionService:AddTag(self.SharedPackages, "Packages")
+		CollectionService:AddTag(self.SharedPackages, "WallySharedPackages")
 	end
 
-	if not self.PackageIndex then
-		self.PackageIndex = Instance.new("Folder")
+	if not self.SharedPackageIndex then
+		self.SharedPackageIndex = Instance.new("Folder")
 
-		self.PackageIndex.Name = "_Index"
-		self.PackageIndex.Parent = self.SharedPackages
+		self.SharedPackageIndex.Name = "_Index"
+		self.SharedPackageIndex.Parent = self.SharedPackages
+	end
+
+	if not self.ServerPackages then
+		self.ServerPackages = Instance.new("Folder")
+
+		self.ServerPackages.Name = "Packages"
+		self.ServerPackages.Parent = ServerStorage
+
+		CollectionService:AddTag(self.ServerPackages, "WallyServerPackages")
+	end
+
+	if not self.ServerPackageIndex then
+		self.ServerPackageIndex = Instance.new("Folder")
+
+		self.ServerPackageIndex.Name = "_Index"
+		self.ServerPackageIndex.Parent = self.ServerPackages
 	end
 end
 

@@ -11,8 +11,8 @@ local PluginWallyApiService = { }
 
 PluginWallyApiService.Reporter = Console.new(`🌟 {script.Name}`)
 
-PluginWallyApiService.DownloadRateLimiter = RateLimit(1, 1)
-PluginWallyApiService.QueryRateLimiter = RateLimit(1, 1)
+PluginWallyApiService.DownloadRateLimiter = RateLimit(100, 1)
+PluginWallyApiService.QueryRateLimiter = RateLimit(100, 1)
 
 function PluginWallyApiService.RequestAsync(_: PluginWallyApiService, method: string, endpoint: string)
 	return Promise.new(function(resolve, reject)

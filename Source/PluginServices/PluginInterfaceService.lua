@@ -64,7 +64,7 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 					return
 				end
 
-				self:QueryIn(1, textInput)
+				self:QueryIn(0.25, textInput)
 			end,
 	
 			onDownloadButtonClicked = function(selectedPackageName)

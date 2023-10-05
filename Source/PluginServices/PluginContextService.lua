@@ -1,3 +1,5 @@
+local Selection = game:GetService("Selection")
+
 local Console = require(script.Parent.Parent.Packages.Console)
 local Promise = require(script.Parent.Parent.Packages.Promise)
 local Trove = require(script.Parent.Parent.Packages.Trove)
@@ -5,6 +7,7 @@ local Trove = require(script.Parent.Parent.Packages.Trove)
 local PluginContext = require(script.Parent.Parent.PluginContext)
 
 local PluginPackageService = require(script.Parent.PluginPackageService)
+local PluginStyleguideService = require(script.Parent.PluginStyleguideService)
 
 local PluginContextService = { }
 
@@ -75,7 +78,14 @@ function PluginContextService.OnStart(self: PluginContextService)
 		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
 
 		PluginPackageService:AddPackageToIndex(selectedPackageObject)
-		PluginPackageService:AddPackageToShared(selectedPackageObject)
+		-- PluginPackageService:AddPackageToShared(selectedPackageObject)
+
+		local packageStub = selectedPackageObject:CreateStubModule()
+
+		packageStub.Name = PluginStyleguideService:ToPascalCase(selectedPackageObject.Name)
+		packageStub.Parent = workspace
+		
+		Selection:Set({ packageStub })
 	end))
 end
 
