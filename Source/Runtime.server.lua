@@ -26,6 +26,9 @@ local runtimeReporter = Console.new(`🚀 {script.Name}`)
 local branch = script.Parent:GetAttribute("Branch")
 local commit = script.Parent:GetAttribute("Commit")
 
+--[[
+	Disable the ability to log on the production version of the plugin.
+]]
 if branch == "master" then
 	Console.setGlobalLogLevel(Console.LogLevel.Warn)
 else
