@@ -16,7 +16,7 @@ PluginContext.UserGameSettings = (UserGameSettings :: UserGameSettings)
 
 PluginContext.PluginSettings = { }
 
-PluginContext.PluginSettings.Version = "1.0.0-rc.0"
+PluginContext.PluginSettings.Version = "1.0.0-rc.1"
 
 PluginContext.PluginSettings.Widget = { }
 
@@ -36,8 +36,8 @@ PluginContext.PluginSettings.Toolbar.Buttons = { }
 PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface = { }
 
 PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.Icons = { }
-PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.Icons.Light = "rbxassetid://6835618318"
-PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.Icons.Dark = "rbxassetid://6835618318"
+PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.Icons.Light = "http://www.roblox.com/asset/?id=15129182671"
+PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.Icons.Dark = "http://www.roblox.com/asset/?id=15129182671"
 
 PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.Text = "Wally"
 PluginContext.PluginSettings.Toolbar.Buttons.ToggleInterface.IconAltText = ""
