@@ -4,6 +4,7 @@ local Trove = require(script.Parent.Parent.Packages.Trove)
 local PluginContext = require(script.Parent.Parent.PluginContext)
 
 local PluginInterfaceService = require(script.Parent.PluginInterfaceService)
+local PluginActionService = require(script.Parent.PluginActionService)
 
 local PlginWidgetService = { }
 
@@ -27,6 +28,14 @@ PlginWidgetService.WidgetObject = PluginContext.Plugin:CreateDockWidgetPluginGui
 
 function PlginWidgetService.SetVisible(self: PlginWidgetService, isVisible: boolean)
 	self.WidgetObject.Enabled = isVisible
+	
+	if isVisible then
+		task.delay(0.5, function()
+			PluginActionService:EndAction("WidgetClosed")
+		end)
+	else
+		PluginActionService:StartAction("WidgetClosed")
+	end
 end
 
 function PlginWidgetService.IsVisible(self: PlginWidgetService)

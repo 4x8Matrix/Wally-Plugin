@@ -9,6 +9,7 @@ local RoduxStore = require(script.Parent.Parent.PluginInterface.Store)
 
 local PluginWallyApiService = require(script.Parent.PluginWallyApiService)
 local PluginPackageService = require(script.Parent.PluginPackageService)
+local PluginActionService = require(script.Parent.PluginActionService)
 local PluginContextService = require(script.Parent.PluginContextService)
 
 local PluginInterfaceService = { }
@@ -145,6 +146,12 @@ function PluginInterfaceService.UnmountInterface(self: PluginInterfaceService)
 	self.RoactHandle = nil
 end
 
+function PluginInterfaceService.SetTransitionState(self: PluginInterfaceService, state: boolean)
+	RoduxStore:dispatch(self:CreateRoduxEvent("setLoadingState", {
+		state = state
+	}))
+end
+
 function PluginInterfaceService.UpdateInstalledPackageList(self: PluginInterfaceService)
 	self.InstalledPackageList = { }
 
@@ -171,6 +178,32 @@ function PluginInterfaceService.OnStart(self: PluginInterfaceService)
 
 	self.PackageRemovedFromIndexConnection = PluginPackageService.OnPackageRemovedFromIndex:Connect(function()
 		self:UpdateInstalledPackageList()
+	end)
+
+	self.ActionStartedConnection = PluginActionService.ActionStarted:Connect(function()
+		if not PluginActionService:IsTransitionableActionActive() then
+			-- if there's any transitionable action active, then enable transition
+
+			return
+		end
+
+		self:SetTransitionState(true)
+	end)
+
+	self.ActionEndedConnection = PluginActionService.ActionEnded:Connect(function(actionName: string)
+		if not PluginActionService:IsTransitionableAction(actionName) then
+			-- non-transitionable actions don't disable transition.
+
+			return
+		end
+
+		if PluginActionService:IsTransitionableActionActive() then
+			-- if another transitionable action is active, don't disable transition.
+
+			return
+		end
+
+		self:SetTransitionState(false)
 	end)
 end
 

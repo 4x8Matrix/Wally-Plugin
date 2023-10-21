@@ -6,6 +6,8 @@ local Console = require(script.Parent.Parent.Packages.Console)
 local Sift = require(script.Parent.Parent.Packages.Sift)
 local Signal = require(script.Parent.Parent.Packages.Signal)
 
+local PluginActionService = require(script.Parent.PluginActionService)
+
 local VirtualPackage = require(script.Parent.Parent.PluginClasses.VirtualPackage)
 
 local PluginStyleguideService = require(script.Parent.Parent.PluginServices.PluginStyleguideService)
@@ -31,7 +33,7 @@ PluginPackageService.OnPackageRemovedFromIndex = Signal.new()
 
 	This function also downloads the relevant dependencies, and creates the stub modules required for the package to function.
 ]]
-function PluginPackageService.AddPackageToIndex(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
+function PluginPackageService.AddPackageToIndex(self: PluginPackageService, package: VirtualPackage.VirtualPackage, isRecursive: boolean)
 	local packageRealm = package:FetchRealmAsync():expect()
 	local contextPackageIndex = packageRealm == "server" and self.ServerPackageIndex
 		or self.SharedPackageIndex
@@ -46,6 +48,10 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 		return
 	end
 
+	if not isRecursive then
+		PluginActionService:StartAction("DownloadingPackage")
+	end
+
 	package:DownloadAsync():andThen(function(module: ModuleScript)
 		local packageFolder = Instance.new("Folder")
 
@@ -57,7 +63,7 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 
 		package:FetchDependenciesAsync():andThen(function(dependencyList: { VirtualPackage.VirtualPackage })
 			for dependencyName, dependencyPackage in dependencyList do
-				self:AddPackageToIndex(dependencyPackage)
+				self:AddPackageToIndex(dependencyPackage, true)
 
 				local stubModule = dependencyPackage:CreateStubModule()
 
@@ -66,10 +72,18 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 			end
 		end):catch(warn):await()
 
+		if not isRecursive then
+			PluginActionService:EndAction("DownloadingPackage")
+		end
+
 		self.OnPackageAddedToIndex:FireDeferred(package)
 	end):catch(warn):await()
 end
 
+--[[
+	Will remove packages from either the ServerPackageIndex or the SharedPackageIndex, additionally this function also discards the
+		package by calling `:Destroy`, but this may change in the future!
+]]
 function PluginPackageService.RemovePackageFromIndex(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
 	local packageRealm = package:FetchRealmAsync():expect()
 	local contextPackageIndex = packageRealm == "server" and self.ServerPackageIndex
