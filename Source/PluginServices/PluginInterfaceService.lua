@@ -113,8 +113,16 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 			end,
 	
 			-- When the developer right-clicks on an installed package instead of pressing the delete button
-			onInstallLabelRightClicked = function(...)
-				warn(...)
+			onInstallLabelRightClicked = function(selectedPackageName)
+				local packageInformation = VirtualPackage.parse(selectedPackageName)
+				local selectedPackage = VirtualPackage.from(
+					packageInformation.Scope,
+					packageInformation.Name,
+					packageInformation.Version
+				)
+
+				PluginPackageService:SetSelectedPackage(selectedPackage)
+				PluginContextService:ShowInstalledContextMenuAsync()
 			end
 		}
 	}))

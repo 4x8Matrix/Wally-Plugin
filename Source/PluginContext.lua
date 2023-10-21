@@ -67,4 +67,16 @@ PluginContext.PluginSettings.DownloadAsModule.Id = HttpService:GenerateGUID(fals
 PluginContext.PluginSettings.DownloadAsModule.Text = "Download Package as Module"
 PluginContext.PluginSettings.DownloadAsModule.Icon = "http://www.roblox.com/asset/?id=14825069009"
 
+PluginContext.PluginSettings.InstalledContextMenu = { }
+
+PluginContext.PluginSettings.InstalledContextMenu.Id = HttpService:GenerateGUID(false)
+PluginContext.PluginSettings.InstalledContextMenu.Icon = "rbxassetid://14806672610"
+PluginContext.PluginSettings.InstalledContextMenu.Title = "Download Package"
+
+PluginContext.PluginSettings.DestroyPackage = { }
+
+PluginContext.PluginSettings.DestroyPackage.Id = HttpService:GenerateGUID(false)
+PluginContext.PluginSettings.DestroyPackage.Text = "Destroy Package"
+PluginContext.PluginSettings.DestroyPackage.Icon = "rbxassetid://14806673358"
+
 return PluginContext

@@ -14,6 +14,18 @@ local PluginContextService = { }
 PluginContextService.Trove = Trove.new()
 PluginContextService.Reporter = Console.new(`🔎 {script.Name}`)
 
+PluginContextService.InstalledContextMenu = PluginContext.Plugin:CreatePluginMenu(
+	PluginContext.PluginSettings.InstalledContextMenu.Id,
+	PluginContext.PluginSettings.InstalledContextMenu.Title,
+	PluginContext.PluginSettings.InstalledContextMenu.Icon
+)
+
+PluginContextService.DestroyPackage = PluginContextService.InstalledContextMenu:AddNewAction(
+	PluginContext.PluginSettings.DestroyPackage.Id,
+	PluginContext.PluginSettings.DestroyPackage.Text,
+	PluginContext.PluginSettings.DestroyPackage.Icon
+)
+
 PluginContextService.DownloadContextMenu = PluginContext.Plugin:CreatePluginMenu(
 	PluginContext.PluginSettings.DownloadContextMenu.Id,
 	PluginContext.PluginSettings.DownloadContextMenu.Title,
@@ -46,6 +58,15 @@ PluginContextService.DownloadAsModule = PluginContextService.DownloadContextMenu
 function PluginContextService.ShowDownloadContextMenuAsync(self: PluginContextService)
 	return Promise.new(function(resolve)
 		resolve(self.DownloadContextMenu:ShowAsync())
+	end)
+end
+
+--[[
+	Show the Roblox context menu for removing packages.
+]]
+function PluginContextService.ShowInstalledContextMenuAsync(self: PluginContextService)
+	return Promise.new(function(resolve)
+		resolve(self.InstalledContextMenu:ShowAsync())
 	end)
 end
 
@@ -86,6 +107,15 @@ function PluginContextService.OnStart(self: PluginContextService)
 		packageStub.Parent = workspace
 		
 		Selection:Set({ packageStub })
+	end))
+
+	--[[
+		Destroy/remove a package from either the shared or server index
+	]]
+	self.Trove:Add(self.DestroyPackage.Triggered:Connect(function()
+		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
+
+		PluginPackageService:RemovePackageFromIndex(selectedPackageObject)
 	end))
 end
 
