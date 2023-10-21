@@ -23,6 +23,7 @@ PluginPackageService.ServerPackages = (newproxy()) :: Folder
 PluginPackageService.ServerPackageIndex = (newproxy()) :: Folder
 
 PluginPackageService.OnPackageAddedToIndex = Signal.new()
+PluginPackageService.OnPackageRemovedFromIndex = Signal.new()
 
 --[[
 	Main function for adding a package to either ServerPackageIndex or SharedPackageIndex, this function reads the "realm"
@@ -67,6 +68,29 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 
 		self.OnPackageAddedToIndex:FireDeferred(package)
 	end):catch(warn):await()
+end
+
+function PluginPackageService.RemovePackageFromIndex(self: PluginPackageService, package: VirtualPackage.VirtualPackage)
+	local packageRealm = package:FetchRealmAsync():expect()
+	local contextPackageIndex = packageRealm == "server" and self.ServerPackageIndex
+		or self.SharedPackageIndex
+
+	local fullPackageName = self:EncodePackageName(VirtualPackage.into({
+		Scope = package.Scope,
+		Name = package.Name,
+		Version = package.Version
+	}))
+
+	local packageFolder = contextPackageIndex:FindFirstChild(fullPackageName)
+
+	if not packageFolder then
+		return
+	end
+
+	packageFolder:Destroy()
+	package:Destroy()
+
+	self.OnPackageRemovedFromIndex:FireDeferred(package)
 end
 
 --[[

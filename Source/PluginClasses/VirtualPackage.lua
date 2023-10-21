@@ -120,6 +120,21 @@ function VirtualPackage.Prototype.CreateStubModule(self: VirtualPackage)
 end
 
 --[[
+	Destroys a package and removes all references of this package from both the game and the VirtialPackage registry
+]]
+function VirtualPackage.Prototype.Destroy(self: VirtualPackage)
+	if self.ModuleScript then
+		self.ModuleScript:Destroy()
+	end
+
+	VirtualPackage.Packages[VirtualPackage.Interface.into({
+		Scope = self.Scope,
+		Name = self.Name,
+		Version = self.Version
+	})] = nil
+end
+
+--[[
 	Package constructor, used to create new virtial packages. A virtual package represents a handle on a Package that may or may not have
 	been downloaded.
 ]]

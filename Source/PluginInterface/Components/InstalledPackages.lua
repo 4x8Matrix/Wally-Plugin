@@ -45,7 +45,7 @@ function InstalledPackages:generateInstalledPackageList()
 
 				LayoutOrder = 1,
 				OnRightClicked = function()
-					self.props.store.onInstallLabelRightClicked()
+					self.props.store.onInstallLabelRightClicked(packageFullName)
 				end
 			}),
 
@@ -74,11 +74,15 @@ function InstalledPackages:generateInstalledPackageList()
 				}, {
 					UIAspectRatioConstraint = Roact.createElement("UIAspectRatioConstraint"),
 
-					DownloadButton = Roact.createElement("ImageLabel", {
+					DownloadButton = Roact.createElement("ImageButton", {
 						Size = UDim2.fromScale(1, 1),
 						BackgroundTransparency = 1,
 	
-						Image = "rbxassetid://14806673358"
+						Image = "rbxassetid://14806673358",
+
+						[Roact.Event.Activated] = function()
+							self.props.store.onDeleteButtonClicked(packageFullName)
+						end
 					})
 				}),
 			})

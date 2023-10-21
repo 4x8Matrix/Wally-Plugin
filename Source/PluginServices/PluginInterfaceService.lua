@@ -87,9 +87,16 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 				PluginContextService:ShowDownloadContextMenuAsync()
 			end,
 	
-			-- Not yet implemented!
-			onDeleteButtonClicked = function()
-	
+			-- When the developer attempts to remove a package from the project
+			onDeleteButtonClicked = function(selectedPackageName)
+				local packageInformation = VirtualPackage.parse(selectedPackageName)
+				local selectedPackage = VirtualPackage.from(
+					packageInformation.Scope,
+					packageInformation.Name,
+					packageInformation.Version
+				)
+
+				PluginPackageService:RemovePackageFromIndex(selectedPackage)
 			end,
 	
 			-- When the developer right-clicks on the package instead of pressing the download button
@@ -105,9 +112,9 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 				PluginContextService:ShowDownloadContextMenuAsync()
 			end,
 	
-			-- I don't know what this is, but i'm sure there's a good reason for it to exist.
-			onInstallLabelRightClicked = function()
-	
+			-- When the developer right-clicks on an installed package instead of pressing the delete button
+			onInstallLabelRightClicked = function(...)
+				warn(...)
 			end
 		}
 	}))
@@ -153,10 +160,15 @@ function PluginInterfaceService.OnStart(self: PluginInterfaceService)
 	self.PackageAddedToIndexConnection = PluginPackageService.OnPackageAddedToIndex:Connect(function()
 		self:UpdateInstalledPackageList()
 	end)
+
+	self.PackageRemovedFromIndexConnection = PluginPackageService.OnPackageRemovedFromIndex:Connect(function()
+		self:UpdateInstalledPackageList()
+	end)
 end
 
 function PluginInterfaceService.OnStop(self: PluginInterfaceService)
 	self.PackageAddedToIndexConnection:Disconnect()
+	self.PackageRemovedFromIndexConnection:Disconnect()
 end
 
 export type PluginInterfaceService = typeof(PluginInterfaceService)
