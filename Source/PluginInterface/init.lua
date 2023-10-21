@@ -29,7 +29,7 @@ function MainInterface:render()
 			}),
 		}),
 
-		Loading = self.props.store.isLoading and Roact.createElement(Loading)
+		Loading = Roact.createElement(Loading)
 	})
 end
 

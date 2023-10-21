@@ -32,8 +32,13 @@ return function(parent)
 	)
 
 	local thread = task.spawn(function()
+		RoduxStore:dispatch({
+			["type"] = "setLoadingState",
+			["state"] = not RoduxStore:getState().isLoading
+		})
+
 		while true do
-			task.wait(5)
+			task.wait(2)
 
 			RoduxStore:dispatch({
 				["type"] = "setLoadingState",

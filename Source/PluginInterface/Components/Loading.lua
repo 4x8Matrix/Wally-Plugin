@@ -1,6 +1,7 @@
 local Flipper = require(script.Parent.Parent.Parent.Packages.Flipper)
 local RoactFlipper = require(script.Parent.Parent.Parent.Packages.RoactFlipper)
 local Roact = require(script.Parent.Parent.Parent.Packages.Roact)
+local RoactRodux = require(script.Parent.Parent.Parent.Packages.RoactRodux)
 local StudioComponents = require(script.Parent.Parent.Parent.Packages.StudioComponents)
 
 local Loading = Roact.Component:extend("Loading")
@@ -22,40 +23,66 @@ function Loading:init()
 end
 
 function Loading:didMount()
-	self.transparencyMotor:setGoal(Flipper.Spring.new(0, {
-		frequency = 2,
-		dampingRatio = 1,
-	}))
-
-	self.animationMotor:setGoal(Flipper.Linear.new(1, {
-		velocity = 2
-	}))
-
-	self.animationMotorCompletedConnection = self.animationMotor:onComplete(function()
-		local newValue = self.animationBinding:getValue() == 1 and 0 or 1
-
-		self.animationMotor:setGoal(Flipper.Spring.new(newValue, {
+	if self.props.store.isLoading then
+		self.transparencyMotor:setGoal(Flipper.Spring.new(0, {
 			frequency = 2,
 			dampingRatio = 1,
 		}))
-	end)
+
+		self.animationMotor:setGoal(Flipper.Linear.new(1, {
+			velocity = 2
+		}))
+
+		self.animationMotorCompletedConnection = self.animationMotor:onComplete(function()
+			local newValue = self.animationBinding:getValue() == 1 and 0 or 1
+	
+			self.animationMotor:setGoal(Flipper.Spring.new(newValue, {
+				frequency = 2,
+				dampingRatio = 1,
+			}))
+		end)
+	end
 end
 
-function Loading:willUnmount()
-	self.transparencyMotor:setGoal(Flipper.Spring.new(1, {
-		frequency = 4,
-		dampingRatio = 1,
-	}))
+function Loading:didUpdate()
+	if self.props.store.isLoading then
+		self.transparencyMotor:setGoal(Flipper.Spring.new(0, {
+			frequency = 2,
+			dampingRatio = 1,
+		}))
 
-	task.wait(2)
+		self.animationMotor:setGoal(Flipper.Linear.new(1, {
+			velocity = 2
+		}))
 
-	self.animationMotorCompletedConnection:disconnect()
-	self.animationMotor:setGoal(Flipper.Instant.new(0))
+		self.animationMotorCompletedConnection = self.animationMotor:onComplete(function()
+			local newValue = self.animationBinding:getValue() == 1 and 0 or 1
+	
+			self.animationMotor:setGoal(Flipper.Spring.new(newValue, {
+				frequency = 2,
+				dampingRatio = 1,
+			}))
+		end)
+	else
+		self.transparencyMotor:setGoal(Flipper.Spring.new(1, {
+			frequency = 4,
+			dampingRatio = 1,
+		}))
+
+		task.delay(1, function()
+			if self.animationMotorCompletedConnection then
+				self.animationMotorCompletedConnection:disconnect()
+			end
+
+			self.animationMotor:setGoal(Flipper.Instant.new(0))
+		end)
+	end
 end
 
 function Loading:render()
 	return StudioComponents.withTheme(function(theme)
 		return Roact.createElement("Frame", {
+			Active = self.props.store.isLoading,
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
 			BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
@@ -72,7 +99,9 @@ function Loading:render()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
 
-				BackgroundTransparency = 0,
+				BackgroundTransparency = self.transparencyBinding:map(function(value)
+					return value
+				end),
 
 				ZIndex = 2,
 			}, {
@@ -95,7 +124,7 @@ function Loading:render()
 				end),
 
 				BackgroundTransparency = self.transparencyBinding:map(function(value)
-					return value
+					return math.min(value * 2, 1)
 				end)
 			}, {
 				UIAspectRatioConstraint = Roact.createElement("UIAspectRatioConstraint"),
@@ -117,4 +146,8 @@ function Loading:render()
 	end)
 end
 
-return Loading
+return RoactRodux.connect(function(state)
+	return {
+		store = state,
+	}
+end)(Loading)
