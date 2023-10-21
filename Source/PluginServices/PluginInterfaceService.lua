@@ -14,6 +14,7 @@ local PluginContextService = require(script.Parent.PluginContextService)
 local PluginInterfaceService = { }
 
 PluginInterfaceService.Reporter = Console.new(`🌟 {script.Name}`)
+PluginInterfaceService.InstalledPackageList = { }
 PluginInterfaceService.RoactHandle = { }
 
 PluginInterfaceService.QueryThread = nil
@@ -129,8 +130,33 @@ function PluginInterfaceService.UnmountInterface(self: PluginInterfaceService)
 	self.RoactHandle = nil
 end
 
+function PluginInterfaceService.UpdateInstalledPackageList(self: PluginInterfaceService)
+	self.InstalledPackageList = { }
+
+	for _, packageObject: VirtualPackage.VirtualPackage in PluginPackageService:GetPackagesInIndex() do
+		table.insert(self.InstalledPackageList, VirtualPackage.into({
+			Scope = packageObject.Scope,
+			Name = packageObject.Name,
+			Version = packageObject.Version
+		}))
+	end
+
+	RoduxStore:dispatch(self:CreateRoduxEvent("setInstalledPackages", {
+		packageArray = self.InstalledPackageList
+	}))
+end
+
 function PluginInterfaceService.OnStart(self: PluginInterfaceService)
 	self:UpdateRoduxCallbacks()
+	self:UpdateInstalledPackageList()
+	
+	self.PackageAddedToIndexConnection = PluginPackageService.OnPackageAddedToIndex:Connect(function()
+		self:UpdateInstalledPackageList()
+	end)
+end
+
+function PluginInterfaceService.OnStop(self: PluginInterfaceService)
+	self.PackageAddedToIndexConnection:Disconnect()
 end
 
 export type PluginInterfaceService = typeof(PluginInterfaceService)

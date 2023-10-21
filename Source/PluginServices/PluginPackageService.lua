@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Console = require(script.Parent.Parent.Packages.Console)
 local Sift = require(script.Parent.Parent.Packages.Sift)
+local Signal = require(script.Parent.Parent.Packages.Signal)
 
 local VirtualPackage = require(script.Parent.Parent.PluginClasses.VirtualPackage)
 
@@ -21,6 +22,8 @@ PluginPackageService.SharedPackageIndex = (newproxy()) :: Folder
 PluginPackageService.ServerPackages = (newproxy()) :: Folder
 PluginPackageService.ServerPackageIndex = (newproxy()) :: Folder
 
+PluginPackageService.OnPackageAddedToIndex = Signal.new()
+
 --[[
 	Main function for adding a package to either ServerPackageIndex or SharedPackageIndex, this function reads the "realm"
 		metadata to know where to place the package.
@@ -32,13 +35,11 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 	local contextPackageIndex = packageRealm == "server" and self.ServerPackageIndex
 		or self.SharedPackageIndex
 
-	local fullPackageName = VirtualPackage.into({
+	local fullPackageName = self:EncodePackageName(VirtualPackage.into({
 		Scope = package.Scope,
 		Name = package.Name,
 		Version = package.Version
-	})
-
-	fullPackageName = self:EncodePackageName(fullPackageName)
+	}))
 
 	if contextPackageIndex:FindFirstChild(fullPackageName) then
 		return
@@ -63,7 +64,34 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 				stubModule.Parent = packageFolder
 			end
 		end):catch(warn):await()
+
+		self.OnPackageAddedToIndex:FireDeferred(package)
 	end):catch(warn):await()
+end
+
+--[[
+	Fetches all package instantiated package objects that we currently have under both the Server and Shared _Index folder.
+]]
+function PluginPackageService.GetPackagesInIndex(self: PluginPackageService)
+	local virtualPackages = { }
+
+	for _, packageFolderReference in Sift.Array.merge(
+		self.ServerPackageIndex:GetChildren(),
+		self.SharedPackageIndex:GetChildren()
+	) do
+		local safePageName = self:DecodePackageName(packageFolderReference.Name)
+		local packageDetails = VirtualPackage.parse(safePageName)
+
+		local virtualPackage = VirtualPackage.from(
+			packageDetails.Scope,
+			packageDetails.Name,
+			packageDetails.Version
+		)
+
+		table.insert(virtualPackages, virtualPackage)
+	end
+
+	return virtualPackages
 end
 
 --[[
@@ -116,7 +144,7 @@ end
 	Replaces all occurances of "." with "\2" so that we can set up stub modules later
 ]]
 function PluginPackageService.EncodePackageName(self: PluginPackageService, packageFullName: string)
-	return string.gsub(packageFullName, ".", "\2")
+	return string.gsub(packageFullName, "%.", "\2")
 end
 
 --[[
@@ -171,8 +199,7 @@ function PluginPackageService.OnStart(self: PluginPackageService)
 	) do
 		local safePageName = self:DecodePackageName(packageFolderReference.Name)
 		local packageDetails = VirtualPackage.parse(safePageName)
-
-		local virtualPackage = VirtualPackage.new(
+		local virtualPackage = VirtualPackage.from(
 			packageDetails.Scope,
 			packageDetails.Name,
 			packageDetails.Version
