@@ -13,6 +13,8 @@ Roact = "roblox/roact@1.4.2"
 Rodux = "roblox/rodux@3.0.0"
 RoactRodux = "roblox/roact-rodux@0.5.1"
 StudioComponents = "u-train/studiocomponents@0.1.1"
+Flipper = "alreadypro/flipper@2.0.0"
+RoactFlipper = "alreadypro/roact-flipper@2.0.0"
 
 # Miscellaneous
 Sift = "csqrl/sift@0.0.8"
