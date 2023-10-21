@@ -131,9 +131,7 @@ function VirtualPackage.Interface.new(packageScope: string, packageName: string,
 
 		ModuleScript = nil,
 
-		DependencyList = { },
-
-		DependenciesFetched = false,
+		DependencyList = { }
 	}, {
 		__index = VirtualPackage.Prototype
 	})

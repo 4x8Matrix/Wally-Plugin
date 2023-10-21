@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Console = require(script.Parent.Parent.Packages.Console)
+local Sift = require(script.Parent.Parent.Packages.Sift)
 
 local VirtualPackage = require(script.Parent.Parent.PluginClasses.VirtualPackage)
 
@@ -37,8 +38,7 @@ function PluginPackageService.AddPackageToIndex(self: PluginPackageService, pack
 		Version = package.Version
 	})
 
-	-- VirtualPackage.CreateStubModule can create invalid paths if `.` is found within the package name.
-	fullPackageName = string.gsub(fullPackageName, "%.", "-")
+	fullPackageName = self:EncodePackageName(fullPackageName)
 
 	if contextPackageIndex:FindFirstChild(fullPackageName) then
 		return
@@ -112,6 +112,20 @@ function PluginPackageService.GetSelectedPackage(self: PluginPackageService)
 	return self.SelectedPackage
 end
 
+--[[
+	Replaces all occurances of "." with "\2" so that we can set up stub modules later
+]]
+function PluginPackageService.EncodePackageName(self: PluginPackageService, packageFullName: string)
+	return string.gsub(packageFullName, ".", "\2")
+end
+
+--[[
+	Replaces all occurances of "\2" with "." so that we can set up stub modules later
+]]
+function PluginPackageService.DecodePackageName(self: PluginPackageService, packageFullName: string)
+	return string.gsub(packageFullName, "\2", ".")
+end
+
 function PluginPackageService.OnStart(self: PluginPackageService)
 	self.SharedPackages = CollectionService:GetTagged("WallySharedPackages")[1]
 	self.SharedPackageIndex = self.SharedPackages and self.SharedPackages:FindFirstChild("_Index")
@@ -149,6 +163,22 @@ function PluginPackageService.OnStart(self: PluginPackageService)
 
 		self.ServerPackageIndex.Name = "_Index"
 		self.ServerPackageIndex.Parent = self.ServerPackages
+	end
+
+	for _, packageFolderReference in Sift.Array.merge(
+		self.ServerPackageIndex:GetChildren(),
+		self.SharedPackageIndex:GetChildren()
+	) do
+		local safePageName = self:DecodePackageName(packageFolderReference.Name)
+		local packageDetails = VirtualPackage.parse(safePageName)
+
+		local virtualPackage = VirtualPackage.new(
+			packageDetails.Scope,
+			packageDetails.Name,
+			packageDetails.Version
+		)
+
+		virtualPackage.ModuleScript = packageFolderReference[packageDetails.Name]
 	end
 end
 

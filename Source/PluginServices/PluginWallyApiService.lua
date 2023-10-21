@@ -132,8 +132,6 @@ function PluginWallyApiService.QueryPackageVersionMetadataAsync(self: PluginWall
 		self:QueryPackageMetadataAsync(scope, package):andThen(function(packageMetaData)
 			local packageVersionMetadata
 
-			warn(packageMetaData)
-
 			for _, versionPackageMetaData in packageMetaData.versions do
 				if versionPackageMetaData.package.version == version then
 					packageVersionMetadata = versionPackageMetaData
