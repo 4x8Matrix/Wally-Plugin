@@ -31,7 +31,19 @@ return function(parent)
 		"PluginInterface"
 	)
 
+	local thread = task.spawn(function()
+		while true do
+			task.wait(5)
+
+			RoduxStore:dispatch({
+				["type"] = "setLoadingState",
+				["state"] = not RoduxStore:getState().isLoading
+			})
+		end
+	end)
+
 	return function()
 		Roact.unmount(handle)
+		task.cancel(thread)
 	end
 end

@@ -4,6 +4,7 @@ local StudioComponents = require(script.Parent.Packages.StudioComponents)
 
 local InstalledPackages = require(script.Components.InstalledPackages)
 local PackageSearch = require(script.Components.PackageSearch)
+local Loading = require(script.Components.Loading)
 
 local MainInterface = Roact.Component:extend("MainInterface")
 
@@ -25,8 +26,10 @@ function MainInterface:render()
 
 			PackageSearch = Roact.createElement(PackageSearch, {
 				HeaderText = "Search Wally Packages"
-			})
-		})
+			}),
+		}),
+
+		Loading = self.props.store.isLoading and Roact.createElement(Loading)
 	})
 end
 

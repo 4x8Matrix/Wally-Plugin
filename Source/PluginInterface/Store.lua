@@ -5,6 +5,8 @@ return Rodux.Store.new(Rodux.createReducer({
 	searchedPackagesArray = { },
 	installedPackagesArray = { },
 
+	isLoading = true,
+
 	onInstallLabelRightClicked = function() end,
 	onSuggestedLabelRightClicked = function() end,
 
@@ -26,6 +28,12 @@ return Rodux.Store.new(Rodux.createReducer({
 	setInstalledPackages = function(state, action)
 		return Sift.Dictionary.merge(state, {
 			installedPackagesArray = action.packageArray
+		})
+	end,
+
+	setLoadingState = function(state, action)
+		return Sift.Dictionary.merge(state, {
+			isLoading = action.state
 		})
 	end,
 }))
