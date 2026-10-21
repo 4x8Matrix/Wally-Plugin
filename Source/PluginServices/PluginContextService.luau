@@ -7,7 +7,6 @@ local Trove = require(script.Parent.Parent.Packages.Trove)
 local PluginContext = require(script.Parent.Parent.PluginContext)
 
 local PluginPackageService = require(script.Parent.PluginPackageService)
-local PluginStyleguideService = require(script.Parent.PluginStyleguideService)
 
 local PluginContextService = { }
 
@@ -74,48 +73,40 @@ function PluginContextService.OnStart(self: PluginContextService)
 	self.DownloadContextMenu.Name = `PluginContext<"{PluginContext.PluginSettings.DownloadContextMenu.Title}">`
 	self.DownloadContextMenu.Parent = PluginContext.Plugin
 
-	-- Download a package into the _Index folder, create a stub module in the Server Packages folder
+	--[[
+		Install a package as a server dependency of the place.
+	]]
 	self.Trove:Add(self.DownloadAsServerDependency.Triggered:Connect(function()
-		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
-
-		PluginPackageService:AddPackageToIndex(selectedPackageObject)
-		PluginPackageService:AddPackageToServerPackages(selectedPackageObject)
-	end))
-
-	-- Download a package into the _Index folder, create a stub module in the Shared Packages folder
-	self.Trove:Add(self.DownloadAsSharedDependency.Triggered:Connect(function()
-		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
-
-		PluginPackageService:AddPackageToIndex(selectedPackageObject)
-		PluginPackageService:AddPackageToSharedPackages(selectedPackageObject)
+		PluginPackageService:InstallAsync(PluginPackageService:GetSelectedPackage().Name, "server"):await()
 	end))
 
 	--[[
-		Download a package into the _Index folder, create a stub module in the workspace and selecting it.
-		
-		The goal behind this is to allow players to parent modules to whereever they want too, then those modules will
-			refer to the module in _Index.
+		Install a package as a shared dependency of the place.
+	]]
+	self.Trove:Add(self.DownloadAsSharedDependency.Triggered:Connect(function()
+		PluginPackageService:InstallAsync(PluginPackageService:GetSelectedPackage().Name, "shared"):await()
+	end))
+
+	--[[
+		Install a package as a shared dependency, then select its root link so it can be found in the Explorer and
+			required from `ReplicatedStorage.Packages` like any other package.
 	]]
 	self.Trove:Add(self.DownloadAsModule.Triggered:Connect(function()
-		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
+		local installed, summary =
+			PluginPackageService:InstallAsync(PluginPackageService:GetSelectedPackage().Name, "shared"):await()
 
-		PluginPackageService:AddPackageToIndex(selectedPackageObject)
-
-		local packageStub = selectedPackageObject:CreateStubModule()
-
-		packageStub.Name = PluginStyleguideService:ToPascalCase(selectedPackageObject.Name)
-		packageStub.Parent = workspace
-		
-		Selection:Set({ packageStub })
+		if installed then
+			Selection:Set({ summary.rootLink })
+		end
 	end))
 
 	--[[
-		Destroy/remove a package from either the shared or server index
+		Remove a package from the place, pruning the packages nothing else needs.
 	]]
 	self.Trove:Add(self.DestroyPackage.Triggered:Connect(function()
-		local selectedPackageObject = PluginPackageService:GetSelectedPackage()
+		local selection = PluginPackageService:GetSelectedPackage()
 
-		PluginPackageService:RemovePackageFromIndex(selectedPackageObject)
+		PluginPackageService:RemoveAsync(selection.Alias, selection.Realm):await()
 	end))
 end
 

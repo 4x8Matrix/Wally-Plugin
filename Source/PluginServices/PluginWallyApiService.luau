@@ -1,8 +1,14 @@
 local HttpService = game:GetService("HttpService")
 
+local CargoSemver = require(script.Parent.Parent.Packages.CargoSemver)
 local Console = require(script.Parent.Parent.Packages.Console)
 local Promise = require(script.Parent.Parent.Packages.Promise)
 local RateLimit = require(script.Parent.Parent.Packages.RateLimit)
+
+local Types = require(script.Parent.Parent.PluginUtilities.Types)
+
+local describeRequestFailure = require(script.Parent.Parent.PluginUtilities.describeRequestFailure)
+local parseRegistryManifest = require(script.Parent.Parent.PluginUtilities.parseRegistryManifest)
 
 local WALLY_API = "https://api.wally.run/v1"
 local WALLY_VERSION = "0.3.0"
@@ -23,7 +29,7 @@ PluginWallyApiService.QueryRateLimiter = RateLimit(100, 1)
 ]]
 function PluginWallyApiService.RequestAsync(_: PluginWallyApiService, method: string, endpoint: string)
 	return Promise.new(function(resolve, reject)
-		local response = HttpService:RequestAsync({
+		local requested, response = pcall(HttpService.RequestAsync, HttpService, {
 			Url = `{WALLY_API}/{endpoint}`,
 			Method = method,
 			Headers = {
@@ -31,9 +37,15 @@ function PluginWallyApiService.RequestAsync(_: PluginWallyApiService, method: st
 			}
 		})
 
+		if not requested then
+			reject({ statusCode = 0, statusMessage = tostring(response), body = "" })
+
+			return
+		end
+
 		if not response.Success then
-			reject(response.StatusMessage)
-		
+			reject({ statusCode = response.StatusCode, statusMessage = response.StatusMessage, body = response.Body })
+
 			return
 		end
 
@@ -65,9 +77,6 @@ end
 
 --[[
 	Sends a request to `https://api.wally.run/v1/package-metadata/<scope>/<name>` to fetch metadata on a package.
-	
-	This function will yield the metadata of every version of a package, in order to get a package versioned metadata,
-		please use the `PluginWallyApiService.QueryPackageVersionMetadataAsync` method.
 ]]
 function PluginWallyApiService.QueryPackageMetadataAsync(self: PluginWallyApiService, scope: string, package: string)
 	return Promise.new(function(resolve, reject)
@@ -89,60 +98,94 @@ function PluginWallyApiService.QueryPackageMetadataAsync(self: PluginWallyApiSer
 end
 
 --[[
-	Sends a request to `https://api.wally.run/v1/package-metadata/<scope>/<name>` to fetch metadata on a versioned package.
-	
-	This function specifically piggy-backs off of `PluginWallyApiService.QueryPackageMetadataAsync` because it fetches metadata
-		of a specific version of a package, instead of fetching metadata of all versions of a package.
-
-	Example of metadata from the 'Red' network package:
-		{
-			["dependencies"] =  ▼  {
-				["Clock"] = "red-blox/clock@>=1.0.0, <2.0.0",
-				["Future"] = "red-blox/future@>=1.0.0, <2.0.0",
-				["Guard"] = "red-blox/guard@>=1.0.0, <2.0.0",
-				["Spawn"] = "red-blox/spawn@>=1.0.0, <2.0.0"
-			},
-			["dev-dependencies"] = {},
-			["package"] =  ▼  {
-				["authors"] = {},
-				["exclude"] =  ▼  {
-					[1] = "**"
-				},
-				["include"] =  ▼  {
-					[1] = "default.project.json",
-					[2] = "lib",
-					[3] = "lib/**",
-					[4] = "LICENSE",
-					[5] = "wally.toml",
-					[6] = "README.md"
-				},
-				["license"] = "MIT",
-				["name"] = "red-blox/red",
-				["private"] = false,
-				["realm"] = "shared",
-				["registry"] = "https://github.com/UpliftGames/wally-index",
-				["version"] = "2.1.0"
-			},
-			["place"] = {},
-			["server-dependencies"] = {}
-		}
+	Fetches every published version of a package from `package-metadata/<scope>/<name>` as Manifests. A missing
+		package rejects as `PackageNotFound`: the registry answers 500 instead of 404 for a package absent from its
+		index, so that answer counts as missing too. An entry whose version Wally's semver cannot read is skipped with a
+		warning; any other malformed entry rejects the package.
 ]]
-function PluginWallyApiService.QueryPackageVersionMetadataAsync(self: PluginWallyApiService, scope: string, package: string, version: string)
-	return Promise.new(function(resolve, reject)
-		self:QueryPackageMetadataAsync(scope, package):andThen(function(packageMetaData)
-			local packageVersionMetadata
+function PluginWallyApiService.GetPackageMetadataAsync(self: PluginWallyApiService, scope: string, name: string)
+	return self:QueryPackageMetadataAsync(scope, name):andThen(function(metadata)
+		local manifests = { }
 
-			for _, versionPackageMetaData in packageMetaData.versions do
-				if versionPackageMetaData.package.version == version then
-					packageVersionMetadata = versionPackageMetaData
-		
-					break
+		for _, entry in metadata.versions or { } do
+			local hasVersion, version = pcall(function()
+				local candidate = entry.package.version
+
+				assert(type(candidate) == "string", "the version is not a string")
+
+				return candidate
+			end)
+
+			if hasVersion and not pcall(CargoSemver.Version.parse, version) then
+				self.Reporter:Warn(`{scope}/{name}@{version} is not a version Wally's semver reads, so it is skipped`)
+
+				continue
+			end
+
+			local parsed = parseRegistryManifest(entry)
+
+			if not parsed.ok then
+				return Promise.reject(parsed.error)
+			end
+
+			table.insert(manifests, parsed.value)
+		end
+
+		return manifests
+	end, function(failure)
+		local status = failure.statusCode or 0
+		local missing = status == 404
+			or (status == 500 and string.find(failure.body, "could not open package", 1, true))
+		local detail = if failure.body and failure.body ~= "" then `: {failure.body}` else ""
+
+		if missing then
+			return Promise.reject({
+				kind = "PackageNotFound",
+				message = `Failed to find a source for {scope}/{name}`,
+				package = `{scope}/{name}`
+			})
+		end
+
+		return Promise.reject({
+			kind = "RegistryUnavailable",
+			message = `the registry did not answer: {describeRequestFailure(failure)}{detail}`,
+			package = `{scope}/{name}`
+		})
+	end)
+end
+
+--[[
+	Returns the resolver's view of the registry for one install run: `query` fetches a package's versions the first
+		time it is asked for that package, keeps them, and returns those matching the request. It yields while it
+		fetches.
+]]
+function PluginWallyApiService.CreatePackageSource(self: PluginWallyApiService): Types.PackageSource
+	local cache = { }
+
+	return {
+		query = function(request: Types.PackageReq)
+			local key = `{request.name.scope}/{request.name.name}`
+			local matching = { }
+
+			if not cache[key] then
+				local fetched, value = self:GetPackageMetadataAsync(request.name.scope, request.name.name):await()
+
+				cache[key] = if fetched then { ok = true, value = value } else { ok = false, error = value }
+			end
+
+			if not cache[key].ok then
+				return cache[key]
+			end
+
+			for _, manifest in cache[key].value do
+				if request.versionReq:matches(manifest.package.version) then
+					table.insert(matching, manifest)
 				end
 			end
 
-			resolve(packageVersionMetadata)
-		end):catch(reject)
-	end)
+			return { ok = true, value = matching }
+		end
+	}
 end
 
 --[[

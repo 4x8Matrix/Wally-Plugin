@@ -1,8 +1,9 @@
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
+
 local RoactRodux = require(script.Parent.Parent.Packages.RoactRodux)
 local Roact = require(script.Parent.Parent.Packages.Roact)
 local Console = require(script.Parent.Parent.Packages.Console)
-
-local VirtualPackage = require(script.Parent.Parent.PluginClasses.VirtualPackage)
+local Trove = require(script.Parent.Parent.Packages.Trove)
 
 local RoactApp = require(script.Parent.Parent.PluginInterface)
 local RoduxStore = require(script.Parent.Parent.PluginInterface.Store)
@@ -12,9 +13,13 @@ local PluginPackageService = require(script.Parent.PluginPackageService)
 local PluginActionService = require(script.Parent.PluginActionService)
 local PluginContextService = require(script.Parent.PluginContextService)
 
+local describeRequestFailure = require(script.Parent.Parent.PluginUtilities.describeRequestFailure)
+local pickDefaultVersion = require(script.Parent.Parent.PluginUtilities.pickDefaultVersion)
+
 local PluginInterfaceService = { }
 
 PluginInterfaceService.Reporter = Console.new(`🌟 {script.Name}`)
+PluginInterfaceService.Trove = Trove.new()
 PluginInterfaceService.InstalledPackageList = { }
 PluginInterfaceService.RoactHandle = { }
 
@@ -41,22 +46,42 @@ function PluginInterfaceService.QueryIn(self: PluginInterfaceService, seconds: n
 
 		PluginWallyApiService:QueryWallyApiAsync(textInput):andThen(function(wallyPackageInformation)
 			local searchQueryList = { }
-	
+
 			for _, packageData in wallyPackageInformation do
-				table.insert(searchQueryList, VirtualPackage.into({
-					Scope = packageData.scope,
-					Name = packageData.name,
-					Version = packageData.versions[1]
-				}))
+				local default = pickDefaultVersion(packageData.versions)
+
+				if default.ok then
+					table.insert(searchQueryList, `{packageData.scope}/{packageData.name}@{default.value}`)
+				end
 			end
-	
+
 			RoduxStore:dispatch(self:CreateRoduxEvent("setSearchedPackages", {
 				packageArray = searchQueryList
 			}))
 		end):catch(function(exception)
-			self.Reporter:Warn(`Failed to query '{textInput}', with error: {exception}`)
+			self.Reporter:Warn(`Failed to query '{textInput}', with error: {describeRequestFailure(exception)}`)
 		end)
 	end)
+end
+
+--[[
+	The installed package whose id is `id`, or nil when the list the interface shows is out of date.
+]]
+function PluginInterfaceService.FindInstalled(_: PluginInterfaceService, id: string)
+	for _, installed in PluginPackageService:GetInstalled() do
+		if installed.id == id then
+			return installed
+		end
+	end
+
+	return
+end
+
+--[[
+	The selection a search row stands for: the package name without its version.
+]]
+function PluginInterfaceService.CreateSearchSelection(_: PluginInterfaceService, selectedPackageName: string)
+	return { Name = string.match(selectedPackageName, "^(.+)@") }
 end
 
 function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceService)
@@ -75,54 +100,35 @@ function PluginInterfaceService.UpdateRoduxCallbacks(self: PluginInterfaceServic
 				self:QueryIn(0.25, textInput)
 			end,
 	
-			-- When the download button has been clicked
-			onDownloadButtonClicked = function(selectedPackageName)
-				local packageInformation = VirtualPackage.parse(selectedPackageName)
-				local selectedPackage = VirtualPackage.from(
-					packageInformation.Scope,
-					packageInformation.Name,
-					packageInformation.Version
-				)
-
-				PluginPackageService:SetSelectedPackage(selectedPackage)
+			onDownloadButtonClicked = function(selectedPackageName: string)
+				PluginPackageService:SetSelectedPackage(self:CreateSearchSelection(selectedPackageName))
 				PluginContextService:ShowDownloadContextMenuAsync()
 			end,
-	
-			-- When the developer attempts to remove a package from the project
-			onDeleteButtonClicked = function(selectedPackageName)
-				local packageInformation = VirtualPackage.parse(selectedPackageName)
-				local selectedPackage = VirtualPackage.from(
-					packageInformation.Scope,
-					packageInformation.Name,
-					packageInformation.Version
-				)
 
-				PluginPackageService:RemovePackageFromIndex(selectedPackage)
+			onDeleteButtonClicked = function(selectedPackageName: string)
+				local installed = self:FindInstalled(selectedPackageName)
+
+				if installed then
+					PluginPackageService:RemoveAsync(installed.alias, installed.realm):await()
+				end
 			end,
-	
-			-- When the developer right-clicks on the package instead of pressing the download button
-			onSuggestedLabelRightClicked = function(selectedPackageName)
-				local packageInformation = VirtualPackage.parse(selectedPackageName)
-				local selectedPackage = VirtualPackage.from(
-					packageInformation.Scope,
-					packageInformation.Name,
-					packageInformation.Version
-				)
 
-				PluginPackageService:SetSelectedPackage(selectedPackage)
+			onSuggestedLabelRightClicked = function(selectedPackageName: string)
+				PluginPackageService:SetSelectedPackage(self:CreateSearchSelection(selectedPackageName))
 				PluginContextService:ShowDownloadContextMenuAsync()
 			end,
-	
-			-- When the developer right-clicks on an installed package instead of pressing the delete button
-			onInstallLabelRightClicked = function(selectedPackageName)
-				local packageInformation = VirtualPackage.parse(selectedPackageName)
-				local selectedPackage = VirtualPackage.from(
-					packageInformation.Scope,
-					packageInformation.Name,
-					packageInformation.Version
-				)
 
-				PluginPackageService:SetSelectedPackage(selectedPackage)
+			onInstallLabelRightClicked = function(selectedPackageName: string)
+				local installed = self:FindInstalled(selectedPackageName)
+
+				if not installed then
+					self.Reporter:Warn(`{selectedPackageName} is no longer installed; the installed list was out of date`)
+					self:UpdateInstalledPackageList()
+
+					return
+				end
+
+				PluginPackageService:SetSelectedPackage({ Alias = installed.alias, Realm = installed.realm })
 				PluginContextService:ShowInstalledContextMenuAsync()
 			end
 		}
@@ -155,12 +161,8 @@ end
 function PluginInterfaceService.UpdateInstalledPackageList(self: PluginInterfaceService)
 	self.InstalledPackageList = { }
 
-	for _, packageObject: VirtualPackage.VirtualPackage in PluginPackageService:GetPackagesInIndex() do
-		table.insert(self.InstalledPackageList, VirtualPackage.into({
-			Scope = packageObject.Scope,
-			Name = packageObject.Name,
-			Version = packageObject.Version
-		}))
+	for _, installed in PluginPackageService:GetInstalled() do
+		table.insert(self.InstalledPackageList, installed.id)
 	end
 
 	RoduxStore:dispatch(self:CreateRoduxEvent("setInstalledPackages", {
@@ -179,6 +181,14 @@ function PluginInterfaceService.OnStart(self: PluginInterfaceService)
 	self.PackageRemovedFromIndexConnection = PluginPackageService.OnPackageRemovedFromIndex:Connect(function()
 		self:UpdateInstalledPackageList()
 	end)
+
+	self.Trove:Add(ChangeHistoryService.OnUndo:Connect(function()
+		self:UpdateInstalledPackageList()
+	end))
+
+	self.Trove:Add(ChangeHistoryService.OnRedo:Connect(function()
+		self:UpdateInstalledPackageList()
+	end))
 
 	self.ActionStartedConnection = PluginActionService.ActionStarted:Connect(function()
 		if not PluginActionService:IsTransitionableActionActive() then
@@ -210,6 +220,7 @@ end
 function PluginInterfaceService.OnStop(self: PluginInterfaceService)
 	self.PackageAddedToIndexConnection:Disconnect()
 	self.PackageRemovedFromIndexConnection:Disconnect()
+	self.Trove:Destroy()
 end
 
 export type PluginInterfaceService = typeof(PluginInterfaceService)
