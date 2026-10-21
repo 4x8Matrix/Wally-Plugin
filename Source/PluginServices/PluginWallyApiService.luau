@@ -155,29 +155,36 @@ function PluginWallyApiService.GetPackageMetadataAsync(self: PluginWallyApiServi
 end
 
 --[[
-	Returns the resolver's view of the registry for one install run: `query` fetches a package's versions the first
-		time it is asked for that package, keeps them, and returns those matching the request. It yields while it
-		fetches.
+	Returns the registry's view for one install run: `versions` fetches every version of a package the first time it
+		is asked for that package and keeps them, and `query` returns those matching a request. Both yield while they
+		fetch.
 ]]
 function PluginWallyApiService.CreatePackageSource(self: PluginWallyApiService): Types.PackageSource
 	local cache = { }
 
+	local function versions(name: Types.PackageName): Types.Result<{ Types.Manifest }>
+		local key = `{name.scope}/{name.name}`
+
+		if not cache[key] then
+			local fetched, value = self:GetPackageMetadataAsync(name.scope, name.name):await()
+
+			cache[key] = if fetched then { ok = true, value = value } else { ok = false, error = value }
+		end
+
+		return cache[key]
+	end
+
 	return {
+		versions = versions,
 		query = function(request: Types.PackageReq)
-			local key = `{request.name.scope}/{request.name.name}`
+			local fetched = versions(request.name)
 			local matching = { }
 
-			if not cache[key] then
-				local fetched, value = self:GetPackageMetadataAsync(request.name.scope, request.name.name):await()
-
-				cache[key] = if fetched then { ok = true, value = value } else { ok = false, error = value }
+			if not fetched.ok then
+				return fetched
 			end
 
-			if not cache[key].ok then
-				return cache[key]
-			end
-
-			for _, manifest in cache[key].value do
+			for _, manifest in fetched.value do
 				if request.versionReq:matches(manifest.package.version) then
 					table.insert(matching, manifest)
 				end

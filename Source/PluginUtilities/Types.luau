@@ -32,7 +32,10 @@ export type Resolve = {
 	serverDependencies: { [string]: { [string]: string } },
 	devDependencies: { [string]: { [string]: string } }
 }
-export type PackageSource = { query: (request: PackageReq) -> Result<{ Manifest }> }
+export type PackageSource = {
+	query: (request: PackageReq) -> Result<{ Manifest }>,
+	versions: (name: PackageName) -> Result<{ Manifest }>
+}
 export type RealmPlan = {
 	packages: { [string]: string },
 	rootLinks: { [string]: string },

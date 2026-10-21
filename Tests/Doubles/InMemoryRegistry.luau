@@ -27,11 +27,14 @@ function InMemoryRegistry.Prototype.Manifests(self: InMemoryRegistry, scope: str
 end
 
 --[[
-	Returns a PackageSource whose query lists the published versions matching a request, and an empty list for a
-		package nobody published, as Wally's InMemoryRegistrySource does.
+	Returns a PackageSource whose versions lists every published version of a package and whose query lists those
+		matching a request, each an empty list for a package nobody published, as Wally's InMemoryRegistrySource does.
 ]]
 function InMemoryRegistry.Prototype.Source(self: InMemoryRegistry)
 	return {
+		versions = function(name)
+			return { ok = true, value = self.Entries[formatPackageName(name)] or { } }
+		end,
 		query = function(request)
 			local matching = { }
 

@@ -261,9 +261,6 @@ describe("PluginPackageService", function()
 			CreatePackageSource = function()
 				return registry:Source()
 			end,
-			GetPackageMetadataAsync = function(_, scope: string, name: string)
-				return Promise.resolve(registry:Manifests(scope, name))
-			end,
 			DownloadPackageZipAsync = function(_, scope: string, name: string, version: string)
 				if name == "no-zip" then
 					return Promise.reject({ statusCode = 404, statusMessage = "Not Found", body = "" })

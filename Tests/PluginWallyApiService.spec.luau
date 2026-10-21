@@ -8,6 +8,7 @@ local fixture = require(ReplicatedStorage.Tests.Fixtures.registryMetadata)
 
 local PluginWallyApiService = require(ReplicatedStorage.WallyPlugin.PluginServices.PluginWallyApiService)
 
+local parsePackageName = require(ReplicatedStorage.WallyPlugin.PluginUtilities.parsePackageName)
 local parsePackageReq = require(ReplicatedStorage.WallyPlugin.PluginUtilities.parsePackageReq)
 
 local MISSING_BODY = "{\"message\":\"could not open package biff/nope from index\\n\\nCaused by:\\n    0: failed to open file `/tmp/.tmprW8RPG/biff/nope`\\n    1: No such file or directory (os error 2)\"}"
@@ -129,6 +130,20 @@ describe("PluginWallyApiService", function()
 
 		expect(#exact.value).toBe(1)
 		expect(#range.value > 1).toBe(true)
+		expect(requests).toEqual({ "GET package-metadata/sleitnick/trove" })
+	end)
+
+	it("lists every version from the request the resolver uses", function()
+		answerWith(function()
+			return Promise.resolve(HttpService:JSONEncode(fixture.trove))
+		end)
+
+		local source = PluginWallyApiService:CreatePackageSource()
+		local versions = source.versions(parsePackageName("sleitnick/trove").value)
+		local exact = source.query(parsePackageReq("sleitnick/trove@=1.8.0").value)
+
+		expect(#versions.value).toBe(#fixture.trove.versions)
+		expect(#exact.value).toBe(1)
 		expect(requests).toEqual({ "GET package-metadata/sleitnick/trove" })
 	end)
 end)

@@ -205,22 +205,23 @@ function PluginPackageService.CheckClashes(self: PluginPackageService, plan: Typ
 	return { ok = true, value = true }
 end
 
--- seam: the default requirement fetches metadata outside the run's cache, share the cache if installs feel slow
 --[[
-	The requirement written when none is given: `^` and the version the registry website offers by default.
+	The requirement written when none is given: `^` and the version the registry website offers by default, read
+		through the run's package source so the resolver does not fetch the package again.
 ]]
 function PluginPackageService.FindDefaultRequirement(
-	self: PluginPackageService,
-	name: Types.PackageName
+	_: PluginPackageService,
+	name: Types.PackageName,
+	source: Types.PackageSource
 ): Types.Result<string>
-	local fetched, manifestsOrFailure = self.Registry:GetPackageMetadataAsync(name.scope, name.name):await()
+	local fetched = source.versions(name)
 	local versions = { }
 
-	if not fetched then
-		return { ok = false, error = manifestsOrFailure }
+	if not fetched.ok then
+		return fetched
 	end
 
-	for _, manifest in manifestsOrFailure do
+	for _, manifest in fetched.value do
 		table.insert(versions, tostring(manifest.package.version))
 	end
 
@@ -429,15 +430,17 @@ function PluginPackageService.ApplyPlan(
 end
 
 --[[
-	Runs one install or removal: reads the place, lets `change` edit the requests, resolves, plans, checks, downloads
-		and builds, then commits inside one change-history recording, which makes the change one undo step. The place
-		is untouched until the commit; an engine error during the commit cancels the recording, which undoes it.
+	Runs one install or removal: reads the place, lets `change` edit the requests with the run's package source,
+		resolves, plans, checks, downloads and builds, then commits inside one change-history recording, which makes the
+		change one undo step. The place is untouched until the commit; an engine error during the commit cancels the
+		recording, which undoes it.
 ]]
 function PluginPackageService.RunAsync(
 	self: PluginPackageService,
 	operation: string,
 	change: (
-		manifests: { [string]: { [string]: string } }
+		manifests: { [string]: { [string]: string } },
+		source: Types.PackageSource
 	) -> Types.Result<{ [string]: { [string]: string } }>
 )
 	if self.ActiveOperation then
@@ -450,6 +453,7 @@ function PluginPackageService.RunAsync(
 
 	return Promise.new(function(resolvePromise, reject)
 		local state = self:ReadState()
+		local source = self.Registry:CreatePackageSource()
 
 		if not state.ok then
 			reject({ state.error })
@@ -457,11 +461,9 @@ function PluginPackageService.RunAsync(
 			return
 		end
 
-		local changed = change(state.value.manifests)
+		local changed = change(state.value.manifests, source)
 		local root = if changed.ok then self:BuildRoot(changed.value) else changed
-		local resolved = if root.ok
-			then resolvePackages(root.value, state.value.installed, self.Registry:CreatePackageSource())
-			else root
+		local resolved = if root.ok then resolvePackages(root.value, state.value.installed, source) else root
 		local planned = if resolved.ok then planInstallation(resolved.value, ROOT_ID) else resolved
 		local checked = if planned.ok then self:CheckClashes(planned.value, state.value) else planned
 
@@ -564,7 +566,7 @@ function PluginPackageService.InstallAsync(
 	local chosenAlias = alias or toPascalCase(string.match(packageName, "/(.*)$") or packageName)
 	local operation = `Install of {packageName}`
 
-	return self:RunAsync(operation, function(manifests)
+	return self:RunAsync(operation, function(manifests, source)
 		local name = parsePackageName(packageName)
 		local otherRealm = if realm == "shared" then "server" else "shared"
 
@@ -582,7 +584,7 @@ function PluginPackageService.InstallAsync(
 
 		local versionRequirement = if requirement
 			then { ok = true, value = requirement }
-			else self:FindDefaultRequirement(name.value)
+			else self:FindDefaultRequirement(name.value, source)
 
 		if not versionRequirement.ok then
 			return versionRequirement
