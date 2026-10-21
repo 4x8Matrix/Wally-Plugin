@@ -6,6 +6,7 @@ local CargoSemver = require(script.Parent.Parent.Packages.CargoSemver)
 local Console = require(script.Parent.Parent.Packages.Console)
 local Promise = require(script.Parent.Parent.Packages.Promise)
 local Signal = require(script.Parent.Parent.Packages.Signal)
+local Trove = require(script.Parent.Parent.Packages.Trove)
 
 local Types = require(script.Parent.Parent.PluginUtilities.Types)
 
@@ -39,6 +40,9 @@ local ROOT_LINK_PATTERNS = {
 local PluginPackageService = { }
 
 PluginPackageService.Reporter = Console.new(`🍃 {script.Name}`)
+PluginPackageService.Trove = Trove.new()
+PluginPackageService.IndexWatch = PluginPackageService.Trove:Extend()
+PluginPackageService.WatchGeneration = 0
 PluginPackageService.Registry = PluginWallyApiService
 PluginPackageService.Serialiser = PluginSerialiserService
 PluginPackageService.Locations = { shared = ReplicatedStorage, server = ServerStorage }
@@ -122,7 +126,6 @@ function PluginPackageService.ReadState(self: PluginPackageService)
 	local state: PlaceState = { folders = { }, indexes = { }, manifests = { }, installed = { } }
 
 	for _, realm in REALMS do
-		-- seam: Rojo live sync removes _Plugin_Index, detect it if installs are reported vanishing
 		local folder = self.Locations[realm]:FindFirstChild("Packages")
 		local index = folder and folder:FindFirstChild(INDEX_NAME)
 		local manifestModule = index and index:FindFirstChild(MANIFEST_NAME)
@@ -433,7 +436,7 @@ end
 	Runs one install or removal: reads the place, lets `change` edit the requests with the run's package source,
 		resolves, plans, checks, downloads and builds, then commits inside one change-history recording, which makes the
 		change one undo step. The place is untouched until the commit; an engine error during the commit cancels the
-		recording, which undoes it.
+		recording, which undoes it. The indexes are not watched while the commit changes them.
 ]]
 function PluginPackageService.RunAsync(
 	self: PluginPackageService,
@@ -501,10 +504,13 @@ function PluginPackageService.RunAsync(
 			return
 		end
 
+		self.IndexWatch:Clean()
+
 		local committed, countsOrFailure =
 			pcall(self.ApplyPlan, self, planned.value, built, freshState.value, changed.value, resolved.value)
 
 		self.Recorder.Finish(recording, committed)
+		self:WatchIndexes()
 
 		if not committed then
 			self:DestroyBuilt(built)
@@ -685,6 +691,66 @@ function PluginPackageService.GetInstalled(self: PluginPackageService): { Types.
 end
 
 --[[
+	Watches each realm's `_Plugin_Index` in place of the last watch, so one taken from the place by anything but the
+		plugin is reported. The plugin stops watching while it commits, and an undo or redo starts a new watch before a
+		removal it made is reported, which leaves outside removals such as Rojo live sync replacing `Packages` with the
+		folder on disk.
+]]
+function PluginPackageService.WatchIndexes(self: PluginPackageService)
+	local generation = self.WatchGeneration + 1
+
+	self.WatchGeneration = generation
+	self.IndexWatch:Clean()
+
+	for _, realm in REALMS do
+		local location = self.Locations[realm]
+		local folder = location:FindFirstChild("Packages")
+		local index = folder and folder:FindFirstChild(INDEX_NAME)
+
+		if index then
+			self:WatchIndex(location, index, generation)
+		end
+	end
+end
+
+--[[
+	Warns once `index` leaves `location`, unless a newer watch has started by the time the removal is read, and tells
+		whoever lists the installed packages that they changed.
+]]
+function PluginPackageService.WatchIndex(
+	self: PluginPackageService,
+	location: Instance,
+	index: Instance,
+	generation: number
+)
+	local path = index:GetFullName()
+	local packageCount = 0
+
+	for _, child in index:GetChildren() do
+		if child:IsA("Folder") and packageIdFromFolderName(child.Name) then
+			packageCount += 1
+		end
+	end
+
+	self.IndexWatch:Add(location.DescendantRemoving:Connect(function(descendant: Instance)
+		if descendant ~= index then
+			return
+		end
+
+		task.defer(function()
+			if self.WatchGeneration ~= generation then
+				return
+			end
+
+			self.Reporter:Warn(
+				`{path} was removed by something other than the Wally plugin, so the {packageCount} packages installed in it are gone. Rojo live sync does this when its project syncs Packages from disk: install those packages with the Wally CLI, or leave Packages out of the Rojo project.`
+			)
+			self.OnPackageRemovedFromIndex:FireDeferred({ added = 0, kept = 0, removed = packageCount })
+		end)
+	end))
+end
+
+--[[
 	Set the selected package, called from the `PluginInterfaceService` module when a developer clicks on a package entry
 ]]
 function PluginPackageService.SetSelectedPackage(self: PluginPackageService, selection: { [string]: string })
@@ -696,6 +762,27 @@ end
 ]]
 function PluginPackageService.GetSelectedPackage(self: PluginPackageService)
 	return self.SelectedPackage
+end
+
+--[[
+	Watches the indexes the place opened with, and again after every undo and redo, which can bring one back or take
+		one away.
+]]
+function PluginPackageService.OnStart(self: PluginPackageService)
+	self:WatchIndexes()
+	self.Trove:Add(ChangeHistoryService.OnUndo:Connect(function()
+		self:WatchIndexes()
+	end))
+	self.Trove:Add(ChangeHistoryService.OnRedo:Connect(function()
+		self:WatchIndexes()
+	end))
+end
+
+--[[
+	Stops every watch.
+]]
+function PluginPackageService.OnStop(self: PluginPackageService)
+	self.Trove:Destroy()
 end
 
 type PlaceState = {

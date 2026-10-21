@@ -307,11 +307,16 @@ describe("PluginPackageService", function()
 				table.insert(messages, message)
 			end
 		}
+
+		PluginPackageService:WatchIndexes()
 	end)
 
-	it("creates nothing in the place when required", function()
+	it("creates nothing in the place when required or started", function()
+		PluginPackageService.Locations = { shared = ReplicatedStorage, server = ServerStorage }
+		PluginPackageService:OnStart()
+		PluginPackageService:OnStop()
+
 		expect(PluginPackageService.OnInit).toBe(nil)
-		expect(PluginPackageService.OnStart).toBe(nil)
 		expect(#ServerStorage:GetChildren()).toBe(0)
 		expect(#ReplicatedStorage:GetChildren()).toBe(3)
 		expect(ReplicatedStorage.Packages:FindFirstChild("_Plugin_Index")).toBe(nil)
@@ -481,6 +486,42 @@ describe("PluginPackageService", function()
 		expect(restored).toBe(true)
 		expect(shared.Packages.Minimal).toBe(link)
 		expect(shared.Packages._Plugin_Index["biff_minimal@1.1.0"]).toBe(folder)
+	end)
+
+	it("warns when something other than the plugin takes its index", function()
+		local summaries = { }
+		local connection = PluginPackageService.OnPackageRemovedFromIndex:Connect(function(summary)
+			table.insert(summaries, summary)
+		end)
+
+		PluginPackageService:InstallAsync("biff/one-dependency", "shared"):expect()
+		shared.Packages._Plugin_Index:Destroy()
+		task.wait()
+		connection:Disconnect()
+
+		expect(messages[#messages]).toBe(
+			"ReplicatedStorage.Packages._Plugin_Index was removed by something other than the Wally plugin, so the 2 packages installed in it are gone. Rojo live sync does this when its project syncs Packages from disk: install those packages with the Wally CLI, or leave Packages out of the Rojo project."
+		)
+		expect(summaries).toEqual({ { added = 0, kept = 0, removed = 2 } })
+	end)
+
+	it("stays quiet when it takes its own index out", function()
+		PluginPackageService:InstallAsync("biff/minimal", "shared"):expect()
+		PluginPackageService:RemoveAsync("Minimal", "shared"):expect()
+		task.wait()
+
+		expect(messages[#messages]).toBe("Removed Minimal: 1 removed, 0 still installed.")
+	end)
+
+	it("stays quiet when an undo or redo takes its index", function()
+		PluginPackageService:InstallAsync("biff/minimal", "shared"):expect()
+
+		shared.Packages._Plugin_Index.Parent = nil
+
+		PluginPackageService:WatchIndexes()
+		task.wait()
+
+		expect(messages).toEqual({ "Installed biff/minimal@1.1.0 as Minimal: 1 packages (1 added, 0 already present)." })
 	end)
 
 	it("checks the place again once the recording begins", function()
