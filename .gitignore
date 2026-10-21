@@ -1,6 +1,8 @@
 *.rbxl
 *.lock
+!pesde.lock
 
 sourcemap.json
 
 Packages
+roblox_packages

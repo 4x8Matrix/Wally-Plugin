@@ -1,0 +1,36 @@
+name = "4x8matrix/wally_plugin"
+version = "1.0.0"
+private = true
+
+[target]
+environment = "roblox"
+
+[indices]
+default = "https://github.com/pesde-pkg/index"
+
+[wally_indices]
+default = "https://github.com/UpliftGames/wally-index"
+
+[dependencies]
+# Plugin Interface
+Roact = { wally = "roblox/roact", version = "^1.4.2" }
+Rodux = { wally = "roblox/rodux", version = "^3.0.0" }
+RoactRodux = { wally = "roblox/roact-rodux", version = "^0.5.1" }
+StudioComponents = { wally = "u-train/studiocomponents", version = "^0.1.1" }
+Flipper = { wally = "alreadypro/flipper", version = "^2.0.0" }
+RoactFlipper = { wally = "alreadypro/roact-flipper", version = "^2.0.0" }
+
+# Miscellaneous
+Sift = { wally = "csqrl/sift", version = "^0.0.8" }
+Promise = { wally = "evaera/promise", version = "^4.0.0" }
+ZZLib = { wally = "neura-studios/zzlib", version = "^0.1.1" }
+Trove = { wally = "sleitnick/trove", version = "^1.0.1" }
+Loader = { wally = "sleitnick/loader", version = "^2.0.0" }
+Console = { wally = "4x8matrix/console", version = "^2.0.2" }
+Signal = { wally = "sleitnick/signal", version = "^1.5.0" }
+RateLimit = { wally = "red-blox/ratelimit", version = "^1.0.1" }
+CargoSemver = { wally = "tim7775/cargo-semver", version = "^1.0.20" }
+
+[dev_dependencies]
+Jest = { wally = "jsdotlua/jest", version = "^3.10.0" }
+JestGlobals = { wally = "jsdotlua/jest-globals", version = "^3.10.0" }

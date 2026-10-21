@@ -17,7 +17,7 @@
 				},
 
 				"Packages": {
-					"$path": "Packages"
+					"$path": "roblox_packages"
 				}
 			}
 		}
