@@ -1,0 +1,28 @@
+{
+	"name": "wally-plugin-tests",
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"Packages": {
+				"$path": "roblox_packages"
+			},
+			"WallyPlugin": {
+				"$path": "Source",
+				"Packages": {
+					"$path": "roblox_packages"
+				}
+			},
+			"Tests": {
+				"$path": "Tests"
+			}
+		},
+		"ServerScriptService": {
+			"$properties": {
+				"LoadStringEnabled": true
+			},
+			"RunTestsInStudio": {
+				"$path": ".lune/test/bin/run-tests-in-studio.luau"
+			}
+		}
+	}
+}
