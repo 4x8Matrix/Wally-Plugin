@@ -23,31 +23,42 @@ export type Manifest = {
 	package: { name: PackageName, version: CargoSemver.Version, realm: Realm, registry: string },
 	dependencies: { [string]: PackageReq },
 	serverDependencies: { [string]: PackageReq },
-	devDependencies: { [string]: PackageReq }
+	devDependencies: { [string]: PackageReq },
 }
 export type Resolve = {
 	activated: { [string]: PackageId },
 	metadata: { [string]: { realm: Realm, originRealm: Realm } },
 	sharedDependencies: { [string]: { [string]: string } },
 	serverDependencies: { [string]: { [string]: string } },
-	devDependencies: { [string]: { [string]: string } }
+	devDependencies: { [string]: { [string]: string } },
 }
 export type PackageSource = {
 	query: (request: PackageReq) -> Result<{ Manifest }>,
-	versions: (name: PackageName) -> Result<{ Manifest }>
+	versions: (name: PackageName) -> Result<{ Manifest }>,
 }
 export type RealmPlan = {
 	packages: { [string]: string },
 	rootLinks: { [string]: string },
-	packageLinks: { [string]: { [string]: string } }
+	packageLinks: { [string]: { [string]: string } },
 }
 export type InstallPlan = { shared: RealmPlan, server: RealmPlan, dev: RealmPlan }
 export type PlaceManifest = {
 	FormatVersion: number,
 	Dependencies: { [string]: string }?,
-	ServerDependencies: { [string]: string }?
+	ServerDependencies: { [string]: string }?,
 }
 export type InstallSummary = { added: number, kept: number, removed: number, id: string?, rootLink: Instance? }
 export type InstalledPackage = { alias: string, realm: Realm, requirement: string, id: string }
+export type WidgetLayout = {
+	widthClass: "xs" | "s" | "m" | "l",
+	surface: "sheet" | "inline" | "full" | "side" | "strip" | "stripLine",
+	strip: boolean,
+	stackedTabs: boolean,
+	panelWidth: number,
+	rowClass: "xs" | "s" | "m" | "l",
+}
+export type SearchResult = { scope: string, name: string, description: string, version: string }
+export type Progress = { operation: string, step: "resolving" | "downloading" | "writing", done: number, total: number }
+export type FormField = "name" | "version" | "general"
 
-return { }
+return {}
