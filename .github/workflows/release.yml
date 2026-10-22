@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the release to build the plugin for, such as v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and attach the plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Check the tag matches the version in pesde.toml and PluginContext.luau
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' pesde.toml | head -1)"
+          declared="$(sed -n 's/^local VERSION = "\(.*\)"$/\1/p' Source/PluginContext.luau | head -1)"
+          if [ "${TAG}" != "v${version}" ] || [ "${declared}" != "${version}" ]; then
+            echo "release tag ${TAG}, pesde.toml ${version} and PluginContext.luau ${declared} must agree" >&2
+            exit 1
+          fi
+      - name: Install tooling
+        uses: CompeyDev/setup-rokit@v0.1.2
+        with:
+          cache: true
+      - name: Install pesde
+        uses: axiom-co/setup-pesde@v0.4.1
+        with:
+          cache: true
+          version: v0.7.3+registry.0.2.3
+      - name: Install dependencies without dev dependencies
+        run: pesde install --prod
+      - name: Build the plugin
+        run: rojo build default.project.json --output WallyPlugin.rbxm
+      - name: Attach the plugin to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${TAG}" WallyPlugin.rbxm --clobber --repo "${GITHUB_REPOSITORY}"
