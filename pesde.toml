@@ -1,5 +1,5 @@
 name = "4x8matrix/wally_plugin"
-version = "1.0.0"
+version = "0.1.0"
 private = true
 
 [target]
