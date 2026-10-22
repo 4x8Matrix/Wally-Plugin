@@ -27,14 +27,14 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("Biff/minimal", "shared")
 		end,
-		message = "package scope 'Biff' is invalid (scopes can only contain lowercase characters, digits and '-')"
+		message = "package scope 'Biff' is invalid (scopes can only contain lowercase characters, digits and '-')",
 	},
 	{
 		kind = "InvalidRequest",
 		title = "a requirement semver cannot read",
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared", "not a version")
-		end
+		end,
 	},
 	{
 		kind = "PackageNotFound",
@@ -45,16 +45,16 @@ local failureCases = {
 					query = function()
 						return {
 							ok = false,
-							error = { kind = "PackageNotFound", message = "Failed to find a source for biff/minimal" }
+							error = { kind = "PackageNotFound", message = "Failed to find a source for biff/minimal" },
 						}
-					end
+					end,
 				}
 			end
 		end,
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared", "^1.0.0")
 		end,
-		message = "Failed to find a source for biff/minimal@>=1.0.0, <2.0.0"
+		message = "Failed to find a source for biff/minimal@>=1.0.0, <2.0.0",
 	},
 	{
 		kind = "NoMatchingVersion",
@@ -62,7 +62,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared", "^9.0.0")
 		end,
-		message = "No packages were found that matched (Shared) biff/minimal@>=9.0.0, <10.0.0.\nAre you sure this is a Shared dependency?"
+		message = "No packages were found that matched (Shared) biff/minimal@>=9.0.0, <10.0.0.\nAre you sure this is a Shared dependency?",
 	},
 	{
 		kind = "Conflict",
@@ -74,7 +74,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/other", "shared")
 		end,
-		message = "All possible candidates for package biff/minimal@=1.0.0 (Shared) conflicted with other packages that were already installed. These packages were previously selected: biff/minimal@1.0.0"
+		message = "All possible candidates for package biff/minimal@=1.0.0 (Shared) conflicted with other packages that were already installed. These packages were previously selected: biff/minimal@1.0.0",
 	},
 	{
 		kind = "RegistryUnavailable",
@@ -87,17 +87,17 @@ local failureCases = {
 							ok = false,
 							error = {
 								kind = "RegistryUnavailable",
-								message = "the registry did not answer: 0 Http requests are not enabled"
-							}
+								message = "the registry did not answer: 0 Http requests are not enabled",
+							},
 						}
-					end
+					end,
 				}
 			end
 		end,
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared", "^1.0.0")
 		end,
-		message = "the registry did not answer: 0 Http requests are not enabled"
+		message = "the registry did not answer: 0 Http requests are not enabled",
 	},
 	{
 		kind = "DownloadFailed",
@@ -108,7 +108,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/no-zip", "shared")
 		end,
-		message = "biff/no-zip@1.0.0 could not be downloaded: the registry answered 404 Not Found"
+		message = "biff/no-zip@1.0.0 could not be downloaded: the registry answered 404 Not Found",
 	},
 	{
 		kind = "BuildFailed",
@@ -119,7 +119,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/broken", "shared")
 		end,
-		message = "biff/broken@1.0.0 could not be built: "
+		message = "biff/broken@1.0.0 could not be built: ",
 	},
 	{
 		kind = "NameClash",
@@ -136,7 +136,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared")
 		end,
-		message = "ReplicatedStorage.Packages.Minimal already exists and was not written by the Wally plugin"
+		message = "ReplicatedStorage.Packages.Minimal already exists and was not written by the Wally plugin",
 	},
 	{
 		kind = "NameClash",
@@ -150,7 +150,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared")
 		end,
-		message = "ServerStorage.Packages exists and is not a Folder"
+		message = "ServerStorage.Packages exists and is not a Folder",
 	},
 	{
 		kind = "ManifestUnreadable",
@@ -163,7 +163,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/other", "shared")
 		end,
-		message = "ReplicatedStorage.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY could not be read and was left as it is"
+		message = "ReplicatedStorage.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY could not be read and was left as it is",
 	},
 	{
 		kind = "Busy",
@@ -176,7 +176,7 @@ local failureCases = {
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared")
 		end,
-		message = "Studio is recording another change; try again once it finishes"
+		message = "Studio is recording another change; try again once it finishes",
 	},
 	{
 		kind = "Unexpected",
@@ -186,18 +186,18 @@ local failureCases = {
 				return {
 					query = function()
 						error("the source broke")
-					end
+					end,
 				}
 			end
 		end,
 		run = function()
 			return PluginPackageService:InstallAsync("biff/minimal", "shared", "^1.0.0")
-		end
-	}
+		end,
+	},
 }
 
 local function tree(...: Instance): { string }
-	local lines = { }
+	local lines = {}
 
 	for _, root in { ... } do
 		for _, descendant in root:GetDescendants() do
@@ -213,7 +213,7 @@ local function tree(...: Instance): { string }
 end
 
 local function folderNames(index: Instance): { string }
-	local names = { }
+	local names = {}
 
 	for _, child in index:GetChildren() do
 		if child:IsA("Folder") then
@@ -237,8 +237,8 @@ end
 describe("PluginPackageService", function()
 	beforeEach(function()
 		registry = InMemoryRegistry.new()
-		messages = { }
-		recordings = { }
+		messages = {}
+		recordings = {}
 		shared = Instance.new("Folder")
 		server = Instance.new("Folder")
 		shared.Name = "ReplicatedStorage"
@@ -267,7 +267,7 @@ describe("PluginPackageService", function()
 				end
 
 				return Promise.resolve(`{scope}/{name}@{version}`)
-			end
+			end,
 		}
 		PluginPackageService.Serialiser = {
 			SerialiseZipIntoRobloxInstances = function(_, zip: string)
@@ -284,7 +284,7 @@ describe("PluginPackageService", function()
 				end
 
 				return module
-			end
+			end,
 		}
 		PluginPackageService.Recorder = {
 			Begin = function(name: string)
@@ -294,7 +294,7 @@ describe("PluginPackageService", function()
 			end,
 			Finish = function(_, commit: boolean)
 				table.insert(recordings, if commit then "commit" else "cancel")
-			end
+			end,
 		}
 		PluginPackageService.Reporter = {
 			Log = function(_, message: string)
@@ -305,7 +305,7 @@ describe("PluginPackageService", function()
 			end,
 			Error = function(_, message: string)
 				table.insert(messages, message)
-			end
+			end,
 		}
 
 		PluginPackageService:WatchIndexes()
@@ -343,7 +343,7 @@ describe("PluginPackageService", function()
 		)
 		expect(recordings).toEqual({ "begin Install of biff/one-dependency", "commit" })
 		expect(messages).toEqual({
-			"Installed biff/one-dependency@1.0.0 as OneDependency: 2 packages (2 added, 0 already present)."
+			"Installed biff/one-dependency@1.0.0 as OneDependency: 2 packages (2 added, 0 already present).",
 		})
 		expect(PluginActionService:IsActionActive("DownloadingPackage")).toBe(false)
 		expect(PluginPackageService.ActiveOperation).toBe(nil)
@@ -356,6 +356,27 @@ describe("PluginPackageService", function()
 		expect(shared.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY.Source).toBe(
 			writeManifestSource({ FormatVersion = 1, Dependencies = { Minimal = "biff/minimal@^1.1.0" } })
 		)
+	end)
+
+	it("reports its progress as it resolves, as downloading starts, after each download and as it writes", function()
+		local steps = {}
+		local connection = PluginPackageService.OnOperationProgress:Connect(function(progress)
+			table.insert(steps, `{progress.operation}: {progress.step} {progress.done}/{progress.total}`)
+		end)
+
+		PluginPackageService:InstallAsync("biff/one-dependency", "shared"):expect()
+		PluginPackageService:RemoveAsync("OneDependency", "shared"):expect()
+		connection:Disconnect()
+
+		expect(steps).toEqual({
+			"Install of biff/one-dependency: resolving 0/0",
+			"Install of biff/one-dependency: downloading 0/2",
+			"Install of biff/one-dependency: downloading 1/2",
+			"Install of biff/one-dependency: downloading 2/2",
+			"Install of biff/one-dependency: writing 2/2",
+			"Removal of OneDependency: resolving 0/0",
+			"Removal of OneDependency: writing 0/0",
+		})
 	end)
 
 	it("changes nothing when the same package is installed again", function()
@@ -377,7 +398,7 @@ describe("PluginPackageService", function()
 		expect(folderNames(shared.Packages._Plugin_Index)).toEqual({
 			"biff_minimal@1.1.0",
 			"biff_one-dependency@1.0.0",
-			"biff_other@1.0.0"
+			"biff_other@1.0.0",
 		})
 		expect(summary.added).toBe(1)
 		expect(summary.kept).toBe(2)
@@ -442,7 +463,7 @@ describe("PluginPackageService", function()
 			alias = "Minimal",
 			realm = "server",
 			requirement = "biff/minimal@^1.1.0",
-			id = "biff/minimal@1.1.0"
+			id = "biff/minimal@1.1.0",
 		})
 
 		PluginPackageService:RemoveAsync("Minimal", "server"):expect()
@@ -451,7 +472,7 @@ describe("PluginPackageService", function()
 		expect(folderNames(shared.Packages._Plugin_Index)).toEqual({
 			"biff_minimal@1.1.0",
 			"biff_one-dependency@1.0.0",
-			"biff_other@1.0.0"
+			"biff_other@1.0.0",
 		})
 	end)
 
@@ -488,8 +509,52 @@ describe("PluginPackageService", function()
 		expect(shared.Packages._Plugin_Index["biff_minimal@1.1.0"]).toBe(folder)
 	end)
 
+	it("replaces a link and a manifest whose contents change, so an undo can bring the old ones back", function()
+		PluginPackageService:InstallAsync("biff/minimal", "shared", "=1.0.0"):expect()
+
+		local link = shared.Packages.Minimal
+		local manifest = shared.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY
+
+		PluginPackageService:InstallAsync("biff/minimal", "shared", "=1.1.0"):expect()
+
+		expect(shared.Packages.Minimal).never.toBe(link)
+		expect(shared.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY).never.toBe(manifest)
+		expect(link.Parent).toBe(nil)
+		expect(manifest.Parent).toBe(nil)
+		expect((string.find(link.Source, "biff_minimal@1.0.0", 1, true))).never.toBe(nil)
+		expect((string.find(manifest.Source, "biff/minimal@=1.0.0", 1, true))).never.toBe(nil)
+	end)
+
+	it("keeps a link and a manifest whose contents do not change", function()
+		PluginPackageService:InstallAsync("biff/minimal", "shared", "=1.1.0"):expect()
+
+		local link = shared.Packages.Minimal
+		local manifest = shared.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY
+
+		PluginPackageService:InstallAsync("biff/minimal", "shared", "=1.1.0"):expect()
+
+		expect(shared.Packages.Minimal).toBe(link)
+		expect(shared.Packages._Plugin_Index.Manifest_DO_NOT_MODIFY).toBe(manifest)
+	end)
+
+	it("lists a server request that Wally linked from the shared folder with its resolved version", function()
+		PluginPackageService:InstallAsync("biff/minimal", "shared", "^1.0.0", "Minimal"):expect()
+		PluginPackageService:InstallAsync("biff/minimal", "server", "^1.0.0", "ServerMinimal"):expect()
+
+		local listed = {}
+
+		for _, row in PluginPackageService:GetInstalled() do
+			listed[row.alias] = `{row.realm} {row.id}`
+		end
+
+		expect(listed).toEqual({
+			Minimal = "shared biff/minimal@1.1.0",
+			ServerMinimal = "server biff/minimal@1.1.0",
+		})
+	end)
+
 	it("warns when something other than the plugin takes its index", function()
-		local summaries = { }
+		local summaries = {}
 		local connection = PluginPackageService.OnPackageRemovedFromIndex:Connect(function(summary)
 			table.insert(summaries, summary)
 		end)
@@ -499,10 +564,19 @@ describe("PluginPackageService", function()
 		task.wait()
 		connection:Disconnect()
 
-		expect(messages[#messages]).toBe(
+		local warning =
 			"ReplicatedStorage.Packages._Plugin_Index was removed by something other than the Wally plugin, so the 2 packages installed in it are gone. Rojo live sync does this when its project syncs Packages from disk: install those packages with the Wally CLI, or leave Packages out of the Rojo project."
-		)
-		expect(summaries).toEqual({ { added = 0, kept = 0, removed = 2 } })
+
+		expect(messages[#messages]).toBe(warning)
+		expect(summaries).toEqual({
+			{
+				added = 0,
+				kept = 0,
+				removed = 2,
+				lostIndex = "ReplicatedStorage.Packages._Plugin_Index",
+				warning = warning,
+			},
+		})
 	end)
 
 	it("stays quiet when it takes its own index out", function()
@@ -558,9 +632,9 @@ describe("PluginPackageService", function()
 				alias = "OneDependency",
 				realm = "shared",
 				requirement = "biff/one-dependency@^1.0.0",
-				id = "biff/one-dependency@1.0.0"
+				id = "biff/one-dependency@1.0.0",
 			},
-			{ alias = "Server", realm = "server", requirement = "biff/server@^1.0.0", id = "biff/server@1.0.0" }
+			{ alias = "Server", realm = "server", requirement = "biff/server@^1.0.0", id = "biff/server@1.0.0" },
 		})
 	end)
 
@@ -585,7 +659,7 @@ describe("PluginPackageService", function()
 		)
 
 		local problems = failuresOf(PluginPackageService:InstallAsync("biff/pair", "shared"))
-		local kinds = { }
+		local kinds = {}
 
 		for _, problem in problems do
 			table.insert(kinds, problem.kind)

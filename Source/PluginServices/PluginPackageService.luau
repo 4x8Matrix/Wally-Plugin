@@ -34,10 +34,10 @@ local ROOT_KEYS = { shared = "dependencies", server = "serverDependencies" }
 local ROOT_LINK_PATTERNS = {
 	'^return require%(script%.Parent%._Plugin_Index%["([^"]+)"%]%["[^"]+"%]%)\n?$',
 	'^return require%(game%.ReplicatedStorage%.Packages%._Plugin_Index%["([^"]+)"%]%["[^"]+"%]%)\n?$',
-	'^return require%(game%.ServerStorage%.Packages%._Plugin_Index%["([^"]+)"%]%["[^"]+"%]%)\n?$'
+	'^return require%(game%.ServerStorage%.Packages%._Plugin_Index%["([^"]+)"%]%["[^"]+"%]%)\n?$',
 }
 
-local PluginPackageService = { }
+local PluginPackageService = {}
 
 PluginPackageService.Reporter = Console.new(`🍃 {script.Name}`)
 PluginPackageService.Trove = Trove.new()
@@ -55,13 +55,13 @@ PluginPackageService.Recorder = {
 			recording,
 			if commit then Enum.FinishRecordingOperation.Commit else Enum.FinishRecordingOperation.Cancel
 		)
-	end
+	end,
 }
 PluginPackageService.ActiveOperation = nil :: string?
-PluginPackageService.SelectedPackage = { }
 
 PluginPackageService.OnPackageAddedToIndex = Signal.new()
 PluginPackageService.OnPackageRemovedFromIndex = Signal.new()
+PluginPackageService.OnOperationProgress = Signal.new()
 
 --[[
 	Returns a failed Result carrying one InstallError.
@@ -107,7 +107,7 @@ function PluginPackageService.ReadManifest(self: PluginPackageService, module: I
 		return self:Fail("ManifestUnreadable", `{refusal}FormatVersion is not 1`)
 	end
 
-	local requests = parsed.value[MANIFEST_KEYS[realm]] or { }
+	local requests = parsed.value[MANIFEST_KEYS[realm]] or {}
 
 	for alias, text in requests do
 		if not string.match(alias, "^[^%c]+$") or not parsePackageReq(text).ok then
@@ -123,13 +123,13 @@ end
 		package ids, taken from the index folder names as Wally takes them from its lockfile.
 ]]
 function PluginPackageService.ReadState(self: PluginPackageService)
-	local state: PlaceState = { folders = { }, indexes = { }, manifests = { }, installed = { } }
+	local state: PlaceState = { folders = {}, indexes = {}, manifests = {}, installed = {} }
 
 	for _, realm in REALMS do
 		local folder = self.Locations[realm]:FindFirstChild("Packages")
 		local index = folder and folder:FindFirstChild(INDEX_NAME)
 		local manifestModule = index and index:FindFirstChild(MANIFEST_NAME)
-		local read = if manifestModule then self:ReadManifest(manifestModule, realm) else { ok = true, value = { } }
+		local read = if manifestModule then self:ReadManifest(manifestModule, realm) else { ok = true, value = {} }
 
 		if folder and not folder:IsA("Folder") then
 			return self:Fail("NameClash", `{folder:GetFullName()} exists and is not a Folder`)
@@ -143,7 +143,7 @@ function PluginPackageService.ReadState(self: PluginPackageService)
 		state.indexes[realm] = index
 		state.manifests[realm] = read.value
 
-		for _, child in if index then index:GetChildren() else { } do
+		for _, child in if index then index:GetChildren() else {} do
 			local id = packageIdFromFolderName(child.Name)
 
 			if child:IsA("Folder") and id then
@@ -164,11 +164,11 @@ function PluginPackageService.BuildRoot(self: PluginPackageService, manifests: {
 			name = { scope = "place", name = "root" },
 			version = CargoSemver.Version.parse("0.0.0"),
 			realm = "shared",
-			registry = ""
+			registry = "",
 		},
-		dependencies = { },
-		serverDependencies = { },
-		devDependencies = { }
+		dependencies = {},
+		serverDependencies = {},
+		devDependencies = {},
 	}
 
 	for _, realm in REALMS do
@@ -218,7 +218,7 @@ function PluginPackageService.FindDefaultRequirement(
 	source: Types.PackageSource
 ): Types.Result<string>
 	local fetched = source.versions(name)
-	local versions = { }
+	local versions = {}
 
 	if not fetched.ok then
 		return fetched
@@ -238,61 +238,76 @@ function PluginPackageService.FindDefaultRequirement(
 end
 
 --[[
-	Downloads and builds every package the plan needs that the place does not hold yet. Every failure is collected
-		before rejecting, so one report names every package that could not be installed.
+	Downloads and builds every package the plan needs that the place does not hold yet, reporting progress as the
+		downloads start and after each one. Every failure is collected before rejecting, so one report names every
+		package that could not be installed.
 ]]
 function PluginPackageService.BuildPackagesAsync(
 	self: PluginPackageService,
+	operation: string,
 	plan: Types.InstallPlan,
 	state: PlaceState,
 	resolve: Types.Resolve
 )
 	return Promise.new(function(resolvePromise, reject)
-		local built: { [string]: Instance } = { }
-		local errors: { Types.InstallError } = { }
+		local built: { [string]: Instance } = {}
+		local errors: { Types.InstallError } = {}
+		local missing = {}
 
 		for _, realm in REALMS do
 			local index = state.indexes[realm]
 
 			for folderName, id in plan[realm].packages do
-				local packageId = resolve.activated[id]
-
-				if index and index:FindFirstChild(folderName) then
-					continue
+				if not (index and index:FindFirstChild(folderName)) then
+					table.insert(missing, { folderName = folderName, id = id })
 				end
-
-				local downloaded, zipOrFailure = self.Registry
-					:DownloadPackageZipAsync(packageId.name.scope, packageId.name.name, tostring(packageId.version))
-					:await()
-
-				if not downloaded then
-					table.insert(
-						errors,
-						{
-							kind = "DownloadFailed",
-							message = `{id} could not be downloaded: the registry answered {describeRequestFailure(zipOrFailure)}`,
-							package = id
-						}
-					)
-
-					continue
-				end
-
-				local serialised, instance =
-					pcall(self.Serialiser.SerialiseZipIntoRobloxInstances, self.Serialiser, zipOrFailure)
-
-				if not serialised or not instance then
-					table.insert(
-						errors,
-						{ kind = "BuildFailed", message = `{id} could not be built: {instance}`, package = id }
-					)
-
-					continue
-				end
-
-				instance.Name = packageId.name.name
-				built[folderName] = instance
 			end
+		end
+
+		if #missing > 0 then
+			self.OnOperationProgress:Fire({ operation = operation, step = "downloading", done = 0, total = #missing })
+		end
+
+		for position, entry in missing do
+			local id = entry.id
+			local packageId = resolve.activated[id]
+			local downloaded, zipOrFailure = self.Registry
+				:DownloadPackageZipAsync(packageId.name.scope, packageId.name.name, tostring(packageId.version))
+				:await()
+
+			self.OnOperationProgress:Fire({
+				operation = operation,
+				step = "downloading",
+				done = position,
+				total = #missing,
+			})
+
+			if not downloaded then
+				local reason = describeRequestFailure(zipOrFailure)
+
+				table.insert(errors, {
+					kind = "DownloadFailed",
+					message = `{id} could not be downloaded: the registry answered {reason}`,
+					package = id,
+				})
+
+				continue
+			end
+
+			local serialised, instance =
+				pcall(self.Serialiser.SerialiseZipIntoRobloxInstances, self.Serialiser, zipOrFailure)
+
+			if not serialised or not instance then
+				table.insert(
+					errors,
+					{ kind = "BuildFailed", message = `{id} could not be built: {instance}`, package = id }
+				)
+
+				continue
+			end
+
+			instance.Name = packageId.name.name
+			built[entry.folderName] = instance
 		end
 
 		if #errors > 0 then
@@ -316,6 +331,29 @@ function PluginPackageService.DestroyBuilt(_: PluginPackageService, built: { [st
 end
 
 --[[
+	Puts a ModuleScript named `name` saying `source` under `parent`. One that already says the same is kept; one that
+		says something else is replaced and unparented rather than rewritten, because Studio's undo brings back
+		instances but not a Source a plugin wrote, and an undo must restore the old script with what it said.
+]]
+function PluginPackageService.WriteModule(_: PluginPackageService, parent: Instance, name: string, source: string)
+	local existing = parent:FindFirstChild(name)
+
+	if existing and existing:IsA("ModuleScript") and existing.Source == source then
+		return
+	end
+
+	local module = Instance.new("ModuleScript")
+
+	if existing then
+		existing.Parent = nil
+	end
+
+	module.Name = name
+	module.Source = source
+	module.Parent = parent
+end
+
+--[[
 	Writes the links one folder must hold and removes the link ModuleScripts it no longer needs. Inside a package
 		folder every ModuleScript but the package itself is a link; inside `Packages` only the plugin's own root
 		links are, so nothing else there is ever removed.
@@ -336,11 +374,7 @@ function PluginPackageService.WriteLinks(
 	end
 
 	for alias, source in links do
-		local link = parent:FindFirstChild(alias) or Instance.new("ModuleScript")
-
-		link.Name = alias
-		link.Source = source
-		link.Parent = parent
+		self:WriteModule(parent, alias, source)
 	end
 end
 
@@ -379,7 +413,7 @@ function PluginPackageService.ApplyPlan(
 			index.Parent = folder
 		end
 
-		for _, child in if index then index:GetChildren() else { } do
+		for _, child in if index then index:GetChildren() else {} do
 			if child:IsA("Folder") and not realmPlan.packages[child.Name] then
 				child.Parent = nil
 				counts.removed += 1
@@ -407,11 +441,11 @@ function PluginPackageService.ApplyPlan(
 		end
 
 		if index and next(requests) then
-			local manifestModule = index:FindFirstChild(MANIFEST_NAME) or Instance.new("ModuleScript")
-
-			manifestModule.Name = MANIFEST_NAME
-			manifestModule.Source = writeManifestSource({ FormatVersion = 1, [MANIFEST_KEYS[realm]] = requests })
-			manifestModule.Parent = index
+			self:WriteModule(
+				index,
+				MANIFEST_NAME,
+				writeManifestSource({ FormatVersion = 1, [MANIFEST_KEYS[realm]] = requests })
+			)
 		elseif index then
 			local manifestModule = index:FindFirstChild(MANIFEST_NAME)
 
@@ -458,6 +492,8 @@ function PluginPackageService.RunAsync(
 		local state = self:ReadState()
 		local source = self.Registry:CreatePackageSource()
 
+		self.OnOperationProgress:Fire({ operation = operation, step = "resolving", done = 0, total = 0 })
+
 		if not state.ok then
 			reject({ state.error })
 
@@ -476,7 +512,7 @@ function PluginPackageService.RunAsync(
 			return
 		end
 
-		local builtOk, built = self:BuildPackagesAsync(planned.value, state.value, resolved.value):await()
+		local builtOk, built = self:BuildPackagesAsync(operation, planned.value, state.value, resolved.value):await()
 
 		if not builtOk then
 			reject(built)
@@ -504,6 +540,13 @@ function PluginPackageService.RunAsync(
 			return
 		end
 
+		local downloads = 0
+
+		for _ in built do
+			downloads += 1
+		end
+
+		self.OnOperationProgress:Fire({ operation = operation, step = "writing", done = downloads, total = downloads })
 		self.IndexWatch:Clean()
 
 		local committed, countsOrFailure =
@@ -515,7 +558,7 @@ function PluginPackageService.RunAsync(
 		if not committed then
 			self:DestroyBuilt(built)
 			reject({
-				{ kind = "CommitFailed", message = `writing to the place failed and was undone: {countsOrFailure}` }
+				{ kind = "CommitFailed", message = `writing to the place failed and was undone: {countsOrFailure}` },
 			})
 
 			return
@@ -600,8 +643,8 @@ function PluginPackageService.InstallAsync(
 
 		return { ok = true, value = manifests }
 	end):andThen(function(counts)
-		local sharedLinks = counts.resolve.sharedDependencies[ROOT_ID] or { }
-		local serverLinks = counts.resolve.serverDependencies[ROOT_ID] or { }
+		local sharedLinks = counts.resolve.sharedDependencies[ROOT_ID] or {}
+		local serverLinks = counts.resolve.serverDependencies[ROOT_ID] or {}
 		local id = sharedLinks[chosenAlias] or serverLinks[chosenAlias]
 		local packages =
 			self.Locations[if sharedLinks[chosenAlias] then "shared" else "server"]:FindFirstChild("Packages")
@@ -610,7 +653,7 @@ function PluginPackageService.InstallAsync(
 			kept = counts.kept,
 			removed = counts.removed,
 			id = id,
-			rootLink = packages and packages:FindFirstChild(chosenAlias)
+			rootLink = packages and packages:FindFirstChild(chosenAlias),
 		}
 
 		self.Reporter:Log(
@@ -651,11 +694,13 @@ function PluginPackageService.RemoveAsync(self: PluginPackageService, alias: str
 end
 
 --[[
-	Lists the place's root dependencies, each with the exact id its root link points at.
+	Lists the place's root dependencies, each with the exact id its root link points at. A request's link is looked for
+		in its own realm's Packages first, then the other's, because Wally links a server request for a package the
+		place already shares from the shared Packages.
 ]]
 function PluginPackageService.GetInstalled(self: PluginPackageService): { Types.InstalledPackage }
 	local state = self:ReadState()
-	local installed = { }
+	local installed = {}
 
 	if not state.ok then
 		self.Reporter:Warn(`The installed packages could not be listed: {state.error.message}`)
@@ -665,21 +710,20 @@ function PluginPackageService.GetInstalled(self: PluginPackageService): { Types.
 
 	for _, realm in REALMS do
 		local folder = state.value.folders[realm]
+		local otherFolder = state.value.folders[if realm == "shared" then "server" else "shared"]
 
 		for alias, requirement in state.value.manifests[realm] do
-			local link = folder and folder:FindFirstChild(alias)
+			local link = (folder and folder:FindFirstChild(alias))
+				or (otherFolder and otherFolder:FindFirstChild(alias))
 			local folderName = if link then self:ReadLinkTarget(link) else nil
 			local linkedId = if folderName then packageIdFromFolderName(folderName) else nil
 
-			table.insert(
-				installed,
-				{
-					alias = alias,
-					realm = realm,
-					requirement = requirement,
-					id = linkedId or requirement
-				}
-			)
+			table.insert(installed, {
+				alias = alias,
+				realm = realm,
+				requirement = requirement,
+				id = linkedId or requirement,
+			})
 		end
 	end
 
@@ -732,6 +776,12 @@ function PluginPackageService.WatchIndex(
 		end
 	end
 
+	local lost = if packageCount == 1
+		then "the package installed in it is gone"
+		else `the {packageCount} packages installed in it are gone`
+	local warning =
+		`{path} was removed by something other than the Wally plugin, so {lost}. Rojo live sync does this when its project syncs Packages from disk: install those packages with the Wally CLI, or leave Packages out of the Rojo project.`
+
 	self.IndexWatch:Add(location.DescendantRemoving:Connect(function(descendant: Instance)
 		if descendant ~= index then
 			return
@@ -742,26 +792,16 @@ function PluginPackageService.WatchIndex(
 				return
 			end
 
-			self.Reporter:Warn(
-				`{path} was removed by something other than the Wally plugin, so the {packageCount} packages installed in it are gone. Rojo live sync does this when its project syncs Packages from disk: install those packages with the Wally CLI, or leave Packages out of the Rojo project.`
-			)
-			self.OnPackageRemovedFromIndex:FireDeferred({ added = 0, kept = 0, removed = packageCount })
+			self.Reporter:Warn(warning)
+			self.OnPackageRemovedFromIndex:FireDeferred({
+				added = 0,
+				kept = 0,
+				removed = packageCount,
+				lostIndex = path,
+				warning = warning,
+			})
 		end)
 	end))
-end
-
---[[
-	Set the selected package, called from the `PluginInterfaceService` module when a developer clicks on a package entry
-]]
-function PluginPackageService.SetSelectedPackage(self: PluginPackageService, selection: { [string]: string })
-	self.SelectedPackage = selection
-end
-
---[[
-	Return the selected package, selected packages are set when the player interacts with a package on the package list.
-]]
-function PluginPackageService.GetSelectedPackage(self: PluginPackageService)
-	return self.SelectedPackage
 end
 
 --[[
@@ -789,7 +829,7 @@ type PlaceState = {
 	folders: { [string]: Instance? },
 	indexes: { [string]: Instance? },
 	manifests: { [string]: { [string]: string } },
-	installed: { [string]: true }
+	installed: { [string]: true },
 }
 
 export type PluginPackageService = typeof(PluginPackageService)
