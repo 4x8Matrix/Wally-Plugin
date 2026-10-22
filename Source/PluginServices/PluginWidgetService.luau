@@ -1,12 +1,11 @@
 local Console = require(script.Parent.Parent.Packages.Console)
 local Trove = require(script.Parent.Parent.Packages.Trove)
 
-local PluginContext = require(script.Parent.Parent.PluginContext)
-
-local PluginInterfaceService = require(script.Parent.PluginInterfaceService)
 local PluginActionService = require(script.Parent.PluginActionService)
+local PluginContext = require(script.Parent.Parent.PluginContext)
+local PluginInterfaceService = require(script.Parent.PluginInterfaceService)
 
-local PlginWidgetService = { }
+local PlginWidgetService = {}
 
 PlginWidgetService.Trove = Trove.new()
 PlginWidgetService.Reporter = Console.new(`🍃 {script.Name}`)
@@ -17,8 +16,8 @@ PlginWidgetService.WidgetInfo = DockWidgetPluginGuiInfo.new(
 	PluginContext.PluginSettings.Widget.OverridePreviousEnabled,
 	PluginContext.PluginSettings.Widget.Size.X,
 	PluginContext.PluginSettings.Widget.Size.Y,
-	PluginContext.PluginSettings.Widget.Size.X,
-	PluginContext.PluginSettings.Widget.Size.Y
+	PluginContext.PluginSettings.Widget.MinimumSize.X,
+	PluginContext.PluginSettings.Widget.MinimumSize.Y
 )
 
 PlginWidgetService.WidgetObject = PluginContext.Plugin:CreateDockWidgetPluginGui(
@@ -28,7 +27,7 @@ PlginWidgetService.WidgetObject = PluginContext.Plugin:CreateDockWidgetPluginGui
 
 function PlginWidgetService.SetVisible(self: PlginWidgetService, isVisible: boolean)
 	self.WidgetObject.Enabled = isVisible
-	
+
 	if isVisible then
 		task.delay(0.5, function()
 			PluginActionService:EndAction("WidgetClosed")
