@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 format = 2
 name = "4x8matrix/wally_plugin"
-version = "0.2.0"
+version = "0.2.1"
 target = "roblox"
 
 [graph."wally#4x8matrix/console@2.1.2 roblox"]

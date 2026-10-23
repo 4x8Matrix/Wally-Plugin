@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 local StudioService = game:GetService("StudioService")
 local UserGameSettings = UserSettings():GetService("UserGameSettings")
 
-local VERSION = "0.2.0"
+local VERSION = "0.2.1"
 
 local StudioSettings = settings().Studio
 

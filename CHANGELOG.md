@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-23
+
+### Fixed
+
+- The install options opened under a package no longer stretch to the height of the widget while an install runs, and the one-line strip no longer grows taller.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added
@@ -47,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The right-click menus on search results and installed packages; the widget installs and removes packages itself.
 - The full-screen loading overlay; a surface shows its own busy state while an install runs.
 
-[Unreleased]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/4x8Matrix/Wally-Plugin/compare/v1.0.0-rc.1...v0.1.0
