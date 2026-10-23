@@ -1,3 +1,4 @@
+local EncodingService = game:GetService("EncodingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -8,8 +9,12 @@ local InMemoryRegistry = require(ReplicatedStorage.Tests.Doubles.InMemoryRegistr
 local PackageBuilder = require(ReplicatedStorage.Tests.Doubles.PackageBuilder)
 local PluginActionService = require(ReplicatedStorage.WallyPlugin.PluginServices.PluginActionService)
 local PluginPackageService = require(ReplicatedStorage.WallyPlugin.PluginServices.PluginPackageService)
+local PluginSerialiserService = require(ReplicatedStorage.WallyPlugin.PluginServices.PluginSerialiserService)
 
+local serialiserFiles = require(ReplicatedStorage.Tests.Fixtures.serialiserFiles)
 local writeManifestSource = require(ReplicatedStorage.WallyPlugin.PluginUtilities.writeManifestSource)
+
+local REFUSED_ZIP = buffer.tostring(EncodingService:Base64Decode(buffer.fromstring(serialiserFiles.refusedZip)))
 
 local beforeEach = JestGlobals.beforeEach
 local describe = JestGlobals.describe
@@ -112,14 +117,14 @@ local failureCases = {
 	},
 	{
 		kind = "BuildFailed",
-		title = "a package the serialiser cannot build",
+		title = "a package Rojo refuses to build",
 		prepare = function()
 			registry:Publish(PackageBuilder.new("biff/broken@1.0.0"))
 		end,
 		run = function()
 			return PluginPackageService:InstallAsync("biff/broken", "shared")
 		end,
-		message = "biff/broken@1.0.0 could not be built: ",
+		message = 'biff/broken@1.0.0 could not be built: default.project.json: $path "src" could not be turned into an instance',
 	},
 	{
 		kind = "NameClash",
@@ -266,16 +271,20 @@ describe("PluginPackageService", function()
 					return Promise.reject({ statusCode = 404, statusMessage = "Not Found", body = "" })
 				end
 
+				if name == "broken" then
+					return Promise.resolve(REFUSED_ZIP)
+				end
+
 				return Promise.resolve(`{scope}/{name}@{version}`)
 			end,
 		}
 		PluginPackageService.Serialiser = {
-			SerialiseZipIntoRobloxInstances = function(_, zip: string)
-				local module = Instance.new("ModuleScript")
-
-				if string.find(zip, "broken", 1, true) then
-					error("bad project file")
+			SerialiseZipIntoRobloxInstances = function(_, zip: string, name: string)
+				if zip == REFUSED_ZIP then
+					return PluginSerialiserService:SerialiseZipIntoRobloxInstances(zip, name)
 				end
+
+				local module = Instance.new("ModuleScript")
 
 				module.Source = `return "{zip}"`
 
@@ -283,7 +292,7 @@ describe("PluginPackageService", function()
 					module:Destroy()
 				end
 
-				return module
+				return { ok = true, value = module }
 			end,
 		}
 		PluginPackageService.Recorder = {

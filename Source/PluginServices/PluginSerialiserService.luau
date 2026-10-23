@@ -1,174 +1,198 @@
--- To Do: document the PluginDownloadService
+local Types = require(script.Parent.Parent.PluginUtilities.Types)
 
-local HttpService = game:GetService("HttpService")
-
-local Console = require(script.Parent.Parent.Packages.Console)
-
+local PluginApplyService = require(script.Parent.PluginApplyService)
+local PluginModelService = require(script.Parent.PluginModelService)
+local PluginReflectionService = require(script.Parent.PluginReflectionService)
+local PluginRefService = require(script.Parent.PluginRefService)
+local PluginSnapshotService = require(script.Parent.PluginSnapshotService)
 local VirtualFileSystem = require(script.Parent.Parent.PluginClasses.VirtualFileSystem)
 
-local PATH_SYMBOL = "$path"
-local CLASS_SYMBOL = "$className"
-local PROP_SYMBOL = "$properties"
+local buildError = require(script.Parent.Parent.PluginUtilities.buildError)
 
-local PluginDownloadService = { }
+local UNEXPECTED = "the build stopped on an unexpected error: "
+local MOVED_APART = { Attributes = true, Name = true, Parent = true, Tags = true }
 
-PluginDownloadService.Reporter = Console.new(`🍃 {script.Name}`)
+local PluginSerialiserService = {}
 
-function PluginDownloadService.ParseNode(_: PluginDownloadService, virtualFileSystem: VirtualFileSystem.VirtualFileSystem, nodePath: string)
-	if string.sub(nodePath, -10) == "client.lua" or string.sub(nodePath, -11) == "client.luau" then
-		local Node = script.Parent.Parent.PluginBlobs.TemplateRootClient:Clone()
+--[[
+	Builds a package zip into instances as Rojo 7.7.1 builds the package's folder in Wally's layout, the root named
+		`name`. A zip that cannot be read is refused.
+]]
+function PluginSerialiserService.SerialiseZipIntoRobloxInstances(
+	self: PluginSerialiserService,
+	zip: string,
+	name: string
+): Types.BuildResult<Instance>
+	local opened = VirtualFileSystem.fromZip(zip)
 
-		Node.Source = virtualFileSystem:ReadFileContents(nodePath)
-
-		return Node
-	elseif string.sub(nodePath, -10) == "server.lua" or string.sub(nodePath, -11) == "server.luau" then
-		local Node = script.Parent.Parent.PluginBlobs.TemplateRootServer:Clone()
-
-		Node.Source = virtualFileSystem:ReadFileContents(nodePath)
-
-		return Node
-	elseif string.sub(nodePath, -3) == "lua" or string.sub(nodePath, -4) == "luau" then
-		local Node = script.Parent.Parent.PluginBlobs.TemplateRootModule:Clone()
-
-		Node.Source = virtualFileSystem:ReadFileContents(nodePath)
-
-		return Node
-	elseif virtualFileSystem:IsDirectory(nodePath) then
-		return Instance.new("Folder")
+	if not opened.ok then
+		return opened
 	end
 
-	return
+	return self:SerialiseFileSystem(opened.value, name)
 end
 
-function PluginDownloadService.ParseHeadNode(self: PluginDownloadService, virtualFileSystem: VirtualFileSystem.VirtualFileSystem, projectPath: string)
-	if virtualFileSystem:IsDirectory(projectPath) then
-		if virtualFileSystem:DirectoryHasFile(projectPath, "init.lua") then
-			return self:ParseNode(virtualFileSystem, `{projectPath}init.lua`), "init.lua"
-		elseif virtualFileSystem:DirectoryHasFile(projectPath, "init.client.lua") then
-			return self:ParseNode(virtualFileSystem, `{projectPath}init.client.lua`), "init.client.lua"
-		elseif virtualFileSystem:DirectoryHasFile(projectPath, "init.server.lua") then
-			return self:ParseNode(virtualFileSystem, `{projectPath}init.server.lua`), "init.server.lua"
-		elseif virtualFileSystem:DirectoryHasFile(projectPath, "init.luau") then
-			return self:ParseNode(virtualFileSystem, `{projectPath}init.luau`), "init.luau"
-		elseif virtualFileSystem:DirectoryHasFile(projectPath, "init.client.luau") then
-			return self:ParseNode(virtualFileSystem, `{projectPath}init.client.luau`), "init.client.luau"
-		elseif virtualFileSystem:DirectoryHasFile(projectPath, "init.server.luau") then
-			return self:ParseNode(virtualFileSystem, `{projectPath}init.server.luau`), "init.server.luau"
-		else
-			return self:ParseNode(virtualFileSystem, `{projectPath}`), nil
-		end
-	else
-		return self:ParseNode(virtualFileSystem, projectPath), "*"
-	end
+-- seam: models a snapshot loaded before an unexpected error are left to the GC; upgrade trigger: a leak after one
+--[[
+	Builds a package's files: snapshots them through PluginSnapshotService, then instantiates the snapshot. The
+		whole pipeline runs under pcall, so an unexpected error from package data, a stack overflow on pathological
+		nesting say, becomes a refusal instead of a crash in the install pipeline.
+]]
+function PluginSerialiserService.SerialiseFileSystem(
+	self: PluginSerialiserService,
+	fileSystem: VirtualFileSystem.VirtualFileSystem,
+	name: string
+): Types.BuildResult<Instance>
+	local ran, result = pcall(function()
+		local snapshot = PluginSnapshotService:SnapshotPackage(fileSystem, name)
+
+		return if snapshot.ok then self:Instantiate(snapshot.value) else snapshot
+	end)
+
+	return if ran then result else buildError("", `{UNEXPECTED}{result}`)
 end
 
-function PluginDownloadService.ParseVirtualFileSystemDirectory(self: PluginDownloadService, virtualFileSystem: VirtualFileSystem.VirtualFileSystem, projectPath: string)
-	if string.sub(projectPath, 1, 2) == "./" then
-		projectPath = string.sub(projectPath, 3, #projectPath)
-	elseif string.sub(projectPath, 1, 2) == "/" then
-		projectPath = string.sub(projectPath, 2, #projectPath)
-	elseif string.sub(projectPath, #projectPath, #projectPath) == "/" then
-		projectPath = string.sub(projectPath, 1, -2)
+--[[
+	Creates a snapshot's instances (spec, Data flow 4): depth first with children in snapshot order, then links Refs
+		once the whole tree exists. On a refusal or an unexpected error, every instance built and every model the
+		snapshot loaded is destroyed before the result returns, so nothing reaches the place.
+]]
+function PluginSerialiserService.Instantiate(
+	self: PluginSerialiserService,
+	snapshot: Types.Snapshot
+): Types.BuildResult<Instance>
+	local build = { created = {}, ids = {}, paths = {} }
+	local ran, result = pcall(function()
+		local root = self:Build(snapshot, build)
+		local linked = if root.ok then PluginRefService:LinkRefs(root.value, build.ids, build.paths) else root
+
+		return if linked.ok then root else linked
+	end)
+	local built = if ran then result else buildError("", `{UNEXPECTED}{result}`)
+
+	if not built.ok then
+		self:DestroyBuild(snapshot, build)
 	end
 
-	if projectPath ~= "" then
-		if string.sub(projectPath, -3) ~= "lua" and string.sub(projectPath, -4) ~= "luau" then
-			projectPath = projectPath ~= "" and `{projectPath}/` or projectPath
-		end
-	end
-
-	local headNode, headNodeName = self:ParseHeadNode(virtualFileSystem, projectPath)
-
-	if headNodeName == "*" then
-		return headNode
-	else
-		for nodeName in virtualFileSystem:GetDirectoryFromPath(projectPath) do
-			if nodeName == headNodeName then
-				continue
-			end
-
-			if virtualFileSystem:IsDirectory(`{projectPath}{nodeName}`) then
-				local node = self:ParseVirtualFileSystemDirectory(virtualFileSystem, `{projectPath}{nodeName}`)
-
-				node.Parent = headNode
-				node.Name = nodeName
-			else
-				local node = self:ParseNode(virtualFileSystem, `{projectPath}{nodeName}`)
-
-				if node then
-					nodeName = string.gsub(nodeName, ".luau", "")
-					nodeName = string.gsub(nodeName, ".lua", "")
-
-					node.Parent = headNode
-					node.Name = nodeName
-				end
-			end
-		end
-	end
-
-	return headNode
+	return built
 end
 
-function PluginDownloadService.SerialiseRojoProjectTree(self: PluginDownloadService, virtualFileSystem: VirtualFileSystem.VirtualFileSystem, projectTree: { [any]: any })
-	local headNode
+--[[
+	Creates one snapshot's instance under the snapshot's name, applies its properties and records its id and file,
+		then builds its children under it in order, after the children a loaded model already holds.
+]]
+function PluginSerialiserService.Build(
+	self: PluginSerialiserService,
+	snapshot: Types.Snapshot,
+	build: Build
+): Types.BuildResult<Instance>
+	local created = self:Create(snapshot)
+	local instance = if created.ok then created.value else nil
 
-	if projectTree[PATH_SYMBOL] then
-		headNode = self:ParseVirtualFileSystemDirectory(virtualFileSystem, `{projectTree[PATH_SYMBOL]}`)
-	elseif projectTree[CLASS_SYMBOL] then
-		headNode = Instance.new(projectTree[CLASS_SYMBOL])
-	else
-		error(`Failed to parse project tree`)
+	if not instance then
+		return created
 	end
 
-	if projectTree[PROP_SYMBOL] then
-		if projectTree[PROP_SYMBOL].Attributes then
-			error(`Attributes aren't supported yet!`)
-		end
+	table.insert(build.created, instance)
+	build.ids[instance] = snapshot.id
+	build.paths[instance] = snapshot.path
+	instance.Name = snapshot.name
 
-		for propertyName, propertyValue in projectTree[PROP_SYMBOL] do
-			headNode[propertyName] = propertyValue
-		end
+	local applied = PluginApplyService:Apply(instance, snapshot.properties)
+
+	if not applied.ok then
+		return buildError(snapshot.path, applied.error.message)
 	end
 
-	for key, value in projectTree do
-		if string.sub(key, 1, 1) == "$" then
-			continue
+	for _, child in snapshot.children do
+		local builtChild = self:Build(child, build)
+
+		if not builtChild.ok then
+			return builtChild
 		end
 
-		local keyNode = self:SerialiseRojoProjectTree(virtualFileSystem, value)
-		
-		keyNode.Name = key
-		keyNode.Parent = headNode
+		builtChild.value.Parent = instance
 	end
 
-	return headNode
+	return created
 end
 
-function PluginDownloadService.SerialiseZipIntoRobloxInstances(self: PluginDownloadService, rawZipBuffer: string)
-	local virtualFileSystem = VirtualFileSystem.fromZip(rawZipBuffer)
+--[[
+	The instance a snapshot stands for: its loaded model when the classes agree, else a new instance of its class,
+		which takes over a loaded model of another class (a Folder under `$className` or an inferred class, R2.3).
+		Whether a plugin can create the class was decided once for the package (PluginSnapshotService.SnapshotPackage).
+]]
+function PluginSerialiserService.Create(
+	self: PluginSerialiserService,
+	snapshot: Types.Snapshot
+): Types.BuildResult<Instance>
+	local model = snapshot.model
 
-	-- if we have a `default.project.json`, we can read that and build the project from there.
-	if virtualFileSystem:DirectoryHasFile("", "default.project.json") then
-		local projectFileContent = virtualFileSystem:ReadFileContents("default.project.json")
-		local projectFileJson = HttpService:JSONDecode(projectFileContent)
-
-		local projectName = projectFileJson.name
-		local projectTree = projectFileJson.tree
-
-		local headNode = self:SerialiseRojoProjectTree(virtualFileSystem, projectTree)
-
-		headNode.Name = projectName
-
-		return headNode
-	else
-		local headNode = self:ParseVirtualFileSystemDirectory(virtualFileSystem, "")
-		
-		-- in some cases, developers publish packages only containing `init.lua`, `init.luau`, we need to account for both.
-
-		return headNode
+	if model and model.ClassName == snapshot.className then
+		return { ok = true, value = model }
 	end
+
+	local instance = Instance.new(snapshot.className)
+	local taken = if model then self:TakeOverModel(model, instance) else { ok = true }
+
+	if not taken.ok then
+		instance:Destroy()
+
+		return buildError(snapshot.path, taken.error.message)
+	end
+
+	return { ok = true, value = instance }
 end
 
-export type PluginDownloadService = typeof(PluginDownloadService)
+--[[
+	Gives a new instance what a loaded model of another class held, as Rojo writes the node's class with the model's
+		properties: its children, attributes and tags, and every other property the new class has, a plugin can set
+		on it, and the model holds differently. The model is destroyed.
+]]
+function PluginSerialiserService.TakeOverModel(
+	_: PluginSerialiserService,
+	model: Instance,
+	instance: Instance
+): Types.BuildResult<nil>
+	local class = PluginReflectionService:GetClass(model.ClassName)
+	local properties = { Attributes = model:GetAttributes(), Tags = model:GetTags() }
 
-return PluginDownloadService
+	for name in class.properties do
+		local shared = PluginReflectionService:FindProperty(instance.ClassName, name)
+		local held, value = pcall(function()
+			return (model :: any)[name]
+		end)
+		local had, current = pcall(function()
+			return (instance :: any)[name]
+		end)
+
+		if shared and shared.writable and held and had and value ~= current and not MOVED_APART[name] then
+			properties[name] = value
+		end
+	end
+
+	for _, child in model:GetChildren() do
+		child.Parent = instance
+	end
+
+	model:Destroy()
+
+	return PluginApplyService:Apply(instance, properties)
+end
+
+--[[
+	Destroys every instance a failed build created and every model its snapshot loaded.
+]]
+function PluginSerialiserService.DestroyBuild(_: PluginSerialiserService, snapshot: Types.Snapshot, build: Build)
+	for _, instance in build.created do
+		instance:Destroy()
+	end
+
+	PluginModelService:DestroyModels({ snapshot })
+end
+
+type Build = { created: { Instance }, ids: { [Instance]: string }, paths: { [Instance]: string } }
+
+export type PluginSerialiserService = typeof(PluginSerialiserService)
+
+return PluginSerialiserService

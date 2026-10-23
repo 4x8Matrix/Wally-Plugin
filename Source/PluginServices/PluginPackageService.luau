@@ -294,20 +294,22 @@ function PluginPackageService.BuildPackagesAsync(
 				continue
 			end
 
-			local serialised, instance =
-				pcall(self.Serialiser.SerialiseZipIntoRobloxInstances, self.Serialiser, zipOrFailure)
+			local serialised = self.Serialiser:SerialiseZipIntoRobloxInstances(zipOrFailure, packageId.name.name)
+			local failure = if serialised.ok then nil else serialised.error
+			local location = if failure and failure.path ~= "" then `{failure.path}: ` else ""
 
-			if not serialised or not instance then
-				table.insert(
-					errors,
-					{ kind = "BuildFailed", message = `{id} could not be built: {instance}`, package = id }
-				)
+			if failure then
+				table.insert(errors, {
+					kind = "BuildFailed",
+					message = `{id} could not be built: {location}{failure.message}`,
+					package = id,
+				})
 
 				continue
 			end
 
-			instance.Name = packageId.name.name
-			built[entry.folderName] = instance
+			serialised.value.Name = packageId.name.name
+			built[entry.folderName] = serialised.value
 		end
 
 		if #errors > 0 then
