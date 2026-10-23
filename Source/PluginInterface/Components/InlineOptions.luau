@@ -18,6 +18,7 @@ InlineOptions.defaultProps = { Width = 260, Closing = false, OnClosed = function
 function InlineOptions:init()
 	self.revealMotor = Flipper.SingleMotor.new(if self.props.Closing then 1 else 0)
 	self.reveal = RoactFlipper.getBinding(self.revealMotor)
+	self.listHeight, self.setListHeight = Roact.createBinding(0)
 	self:setState({ height = 0, resting = false })
 end
 
@@ -115,6 +116,9 @@ function InlineOptions:render()
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
 						Size = UDim2.fromScale(1, 0),
+						[Roact.Change.AbsoluteSize] = function(frame)
+							self.setListHeight(frame.AbsoluteSize.Y)
+						end,
 					}, {
 						Layout = Roact.createElement(
 							"UIListLayout",
@@ -127,7 +131,7 @@ function InlineOptions:render()
 						}),
 						Problems = Roact.createElement(InstallProblems, { Settled = props.Closing, LayoutOrder = 2 }),
 					}),
-					Overlay = Roact.createElement(BusyOverlay, { Settled = props.Closing }),
+					Overlay = Roact.createElement(BusyOverlay, { Settled = props.Closing, Height = self.listHeight }),
 				}),
 				Action = Roact.createElement(InstallAction, { LayoutOrder = 2 }),
 			}),

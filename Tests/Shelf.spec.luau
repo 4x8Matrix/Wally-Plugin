@@ -184,6 +184,15 @@ local function findSurface(root: Instance, name: string): Instance?
 end
 
 --[[
+	The height of the install options opened in place, or of the one-line strip's row.
+]]
+local function measureSurface(root: Instance): number
+	local surface = findSurface(root, "Inline options") or findSurface(root, "Strip panel"):FindFirstChild("Row", true)
+
+	return surface.AbsoluteSize.Y
+end
+
+--[[
 	Waits rendered frames, the ones Flipper steps its motors on.
 ]]
 local function renderFrames(count: number)
@@ -368,6 +377,39 @@ describe("Shelf", function()
 			expect(busy.Visible).toBe(true)
 			expect(busy:FindFirstChild("Step", true).Text).toBe("Downloading 1 of 2")
 			expect(busy:IsDescendantOf(frame:FindFirstChild("Install button", true).Parent)).toBe(false)
+		end
+	end, 15000)
+
+	it("keeps the in-place options and the one-line strip their own height while an install runs", function()
+		local operation = {
+			type = "setOperation",
+			operation = {
+				kind = "install",
+				target = "result:sleitnick/signal",
+				step = "downloading",
+				done = 0,
+				total = 2,
+			},
+		}
+
+		for _, size in { Vector2.new(370, 1150), Vector2.new(1500, 160) } do
+			local busyFromTheStart = seeded(true)
+			local frame, store = mountOnScreen(seeded(true), size.X, size.Y)
+
+			table.insert(busyFromTheStart, operation)
+			task.wait(1)
+
+			local idle = measureSurface(frame)
+
+			store:dispatch(operation)
+
+			local opened = mountOnScreen(busyFromTheStart, size.X, size.Y)
+
+			task.wait(1)
+
+			expect(frame:FindFirstChild("Busy", true).Visible).toBe(true)
+			expect(measureSurface(frame)).toBe(idle)
+			expect(measureSurface(opened)).toBe(idle)
 		end
 	end, 15000)
 

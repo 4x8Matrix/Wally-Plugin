@@ -76,7 +76,9 @@ end
 		in the middle and the step it is on underneath, so the work in the background is plain to see. While busy it
 		takes the clicks meant for the dimmed fields, and lets them through again as soon as the operation ends;
 		everything outside the surface keeps working. `Compact` puts the spinner beside the step for a strip one line
-		tall, and `Settled` starts it at rest, for a closing copy that was already showing it.
+		tall, and `Settled` starts it at rest, for a closing copy that was already showing it. A surface that sizes
+		itself to its content passes `Height`, a binding of the measured height of what the wash covers, since a wash
+		filling it would stretch it to the height of the widget.
 ]]
 function BusyOverlay:render()
 	local props = self.props
@@ -94,7 +96,11 @@ function BusyOverlay:render()
 					return 1 - 0.8 * value
 				end),
 				BorderSizePixel = 0,
-				Size = UDim2.fromScale(1, 1),
+				Size = if props.Height
+					then props.Height:map(function(height)
+						return UDim2.new(1, 0, 0, height)
+					end)
+					else UDim2.fromScale(1, 1),
 				Visible = self.fade:map(function(value)
 					return value > 0.01
 				end),

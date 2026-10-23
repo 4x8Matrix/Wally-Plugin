@@ -64,6 +64,10 @@ local function scrolling(children, order: number, palette, overlay)
 	})
 end
 
+function StripPanel:init()
+	self.formHeight, self.setFormHeight = Roact.createBinding(0)
+end
+
 --[[
 	The install options for a wide, short widget docked like Output, `Width` wide: titles and the action on one row with
 		the fields under them, or everything on one line when the strip is thinner still. What sits under the top row
@@ -118,8 +122,17 @@ function StripPanel:render()
 					Size = UDim2.new(),
 				}, {
 					Flex = Roact.createElement("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill }),
-					Form = Roact.createElement(InstallForm, { Layout = "line" }),
-					Overlay = Roact.createElement(BusyOverlay, { Compact = true }),
+					Fields = Roact.createElement("Frame", {
+						AutomaticSize = Enum.AutomaticSize.Y,
+						BackgroundTransparency = 1,
+						Size = UDim2.fromScale(1, 0),
+						[Roact.Change.AbsoluteSize] = function(frame)
+							self.setFormHeight(frame.AbsoluteSize.Y)
+						end,
+					}, {
+						Form = Roact.createElement(InstallForm, { Layout = "line" }),
+					}),
+					Overlay = Roact.createElement(BusyOverlay, { Compact = true, Height = self.formHeight }),
 				}),
 				Action = fixedAction(150, 3),
 			})
