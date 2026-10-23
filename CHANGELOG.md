@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-23
+
+### Added
+
+- Packages build from every file Rojo understands: `.model.json`, `.rbxm` and `.rbxmx` models, `.meta.json` and `init.meta.json`, `.json`, `.toml` and `.yaml` modules, `.txt` values, `.csv` localization tables, plugin scripts and nested project files.
+- Project files are read in full: typed and untyped property values, attributes, tags, references between instances, sync rules, ignore globs, optional paths and `emitLegacyScripts`.
+- Scripts longer than 200,000 characters install.
+
+### Changed
+
+- A package now builds exactly as Rojo 7.7.1 builds it in Wally's layout, checked instance by instance against real Rojo on 449 published packages.
+- A package Rojo refuses to build is refused with Rojo's reason and the file it came from, instead of installing part of it.
+
+### Fixed
+
+- Modules named `server` or `client`, used by ByteNet, Charm and Replica among others, are no longer installed as scripts.
+- Module names containing `lua`, such as Fusion 0.3's `evaluate`, are no longer mangled.
+- Script names no longer keep their `.server` and `.client` suffixes.
+- Packages that a project file builds from a single file, a nested project or a model are no longer refused.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added
@@ -27,5 +47,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The right-click menus on search results and installed packages; the widget installs and removes packages itself.
 - The full-screen loading overlay; a surface shows its own busy state while an install runs.
 
-[Unreleased]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/4x8Matrix/Wally-Plugin/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/4x8Matrix/Wally-Plugin/compare/v1.0.0-rc.1...v0.1.0
